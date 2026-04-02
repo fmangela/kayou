@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'vue-router';
 import { mountCardStage } from '@/pixi/cardStage';
 import { useGameSessionStore } from '@/stores/session';
-import TowerBattlePanel from '@/components/tower/TowerBattlePanel.vue';
+import BattleTrainingPanel from '@/components/tower/TowerBattlePanel.vue';
 
 const router = useRouter();
 const session = useGameSessionStore();
@@ -210,7 +210,7 @@ function handleLogout() {
           <p class="eyebrow">主界面</p>
           <h1>{{ profile.username }} 的出战大厅</h1>
           <p class="dashboard-copy">
-            当前进度已接入人物状态、卡牌包、爬塔概览，以及可直接游玩的测试战斗入口。
+            当前进度已接入人物状态、卡牌包、爬塔概览，以及大厅里的单局战斗训练入口。
           </p>
         </div>
 
@@ -282,6 +282,8 @@ function handleLogout() {
             </div>
           </div>
         </el-card>
+
+        <BattleTrainingPanel :token="session.token" />
 
         <el-card class="pixi-card" shadow="never">
           <template #header>PixiJS 战场预览</template>
@@ -432,11 +434,6 @@ function handleLogout() {
               {{ room }}
             </span>
           </div>
-        </el-card>
-
-        <el-card shadow="never">
-          <template #header>爬塔测试战斗</template>
-          <TowerBattlePanel :token="session.token" />
         </el-card>
       </section>
     </section>

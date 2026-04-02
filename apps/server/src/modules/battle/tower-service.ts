@@ -145,6 +145,7 @@ interface InitiativeState {
 interface RuntimeBattleSession {
   id: string;
   playerId: number;
+  mode: 'tower' | 'training';
   floor: number;
   difficultyTier: number;
   round: number;
@@ -803,7 +804,7 @@ async function getPlayerBattleSetup(playerId: number) {
   const enabledCardIds = cardRows.map((row) => Number(row.id));
 
   if (enabledCardIds.length < BATTLE_SLOT_COUNT) {
-    throw new ApiError(500, '当前可用卡牌不足 4 张，无法开始测试战斗');
+    throw new ApiError(500, '当前可用卡牌不足 4 张，无法开始战斗');
   }
 
   return {
@@ -819,28 +820,44 @@ function pickEnemyCardIds(cardIds: number[]) {
   return shuffled.slice(0, BATTLE_SLOT_COUNT);
 }
 
+function getModeLabel(mode: RuntimeBattleSession['mode']) {
+  return mode === 'training' ? '战斗训练' : '测试战斗';
+}
+
 function finalizeSessionIfNeeded(session: RuntimeBattleSession) {
   const playerAlive = hasAliveCards(session.playerCards);
   const enemyAlive = hasAliveCards(session.enemyCards);
+  const modeLabel = getModeLabel(session.mode);
 
   if (!playerAlive && !enemyAlive) {
     session.status = 'lost';
     session.actingSide = null;
-    appendFeed(session, '双方同时倒下，测试战斗判定为失败。');
+    appendFeed(session, `双方同时倒下，本局${modeLabel}判定为失败。`);
     return;
   }
 
   if (!enemyAlive) {
     session.status = 'won';
     session.actingSide = null;
-    appendFeed(session, `第 ${session.floor} 层测试战斗已胜利，本次不扣体力也不推进层数。`);
+
+    if (session.mode === 'training') {
+      appendFeed(session, '本局战斗训练已胜利，可以直接重新开一局继续测试。');
+    } else {
+      appendFeed(session, `第 ${session.floor} 层测试战斗已胜利，本次不扣体力也不推进层数。`);
+    }
+
     return;
   }
 
   if (!playerAlive) {
     session.status = 'lost';
     session.actingSide = null;
-    appendFeed(session, '你的全部卡牌都已倒下，测试战斗失败。');
+
+    if (session.mode === 'training') {
+      appendFeed(session, '你的全部卡牌都已倒下，本局战斗训练结束。');
+    } else {
+      appendFeed(session, '你的全部卡牌都已倒下，测试战斗失败。');
+    }
   }
 }
 
@@ -886,6 +903,7 @@ export async function startTowerBattle(playerId: number) {
   const session: RuntimeBattleSession = {
     id: randomUUID(),
     playerId,
+    mode: 'tower',
     floor: setup.floor,
     difficultyTier,
     round: 1,
@@ -923,26 +941,88 @@ export async function startTowerBattle(playerId: number) {
   return buildBattleSnapshot(session);
 }
 
-export async function playTowerBattleTurn(
+export async function startTrainingBattle(playerId: number) {
+  cleanupExpiredSessions();
+  clearPlayerSessions(playerId);
+
+  const setup = await getPlayerBattleSetup(playerId);
+  const difficultyTier = 1;
+  const enemyCardIds = pickEnemyCardIds(setup.enabledCardIds);
+  const [playerCards, enemyCards] = await Promise.all([
+    listCardsByIds(setup.deckCardIds),
+    listCardsByIds(enemyCardIds),
+  ]);
+
+  const session: RuntimeBattleSession = {
+    id: randomUUID(),
+    playerId,
+    mode: 'training',
+    floor: 1,
+    difficultyTier,
+    round: 1,
+    phase: 1,
+    actingSide: 'player',
+    status: 'in_progress',
+    playerCards: playerCards.map((card, index) =>
+      buildRuntimeCardState(card, index + 1, difficultyTier, 'player'),
+    ),
+    enemyCards: enemyCards.map((card, index) =>
+      buildRuntimeCardState(card, index + 1, difficultyTier, 'enemy'),
+    ),
+    initiative: {
+      player: 0,
+      enemy: 0,
+      winner: 'player',
+    },
+    recentSummary: null,
+    feed: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  session.initiative = rollInitiative(session);
+  session.actingSide = session.initiative.winner;
+
+  appendFeed(
+    session,
+    `战斗训练开始：我方 ${session.initiative.player} 点，敌方 ${session.initiative.enemy} 点，${session.actingSide === 'player' ? '我方' : '敌方'} 先攻。`,
+  );
+  appendFeed(
+    session,
+    '当前为大厅训练模式，只进行这一局测试，不消耗体力，也不影响爬塔进度。',
+  );
+
+  battleSessions.set(session.id, session);
+
+  return buildBattleSnapshot(session);
+}
+
+async function playBattleTurn(
   playerId: number,
   input: z.input<typeof towerBattleTurnSchema>,
+  expectedMode?: RuntimeBattleSession['mode'],
 ) {
   cleanupExpiredSessions();
   const payload = towerBattleTurnSchema.parse(input);
   const session = battleSessions.get(payload.battleId);
+  const modeLabel = getModeLabel(expectedMode ?? session?.mode ?? 'training');
 
   if (!session || session.playerId !== playerId) {
-    throw new ApiError(404, '未找到当前测试战斗，会话可能已经过期');
+    throw new ApiError(404, `未找到当前${modeLabel}会话，可能已经过期`);
+  }
+
+  if (expectedMode && session.mode !== expectedMode) {
+    throw new ApiError(400, `当前会话不是${modeLabel}模式，请重新开始`);
   }
 
   if (session.status !== 'in_progress' || !session.actingSide) {
-    throw new ApiError(400, '当前测试战斗已经结束，请重新开始');
+    throw new ApiError(400, `当前${modeLabel}已经结束，请重新开始`);
   }
 
   const playerRole = getPlayerRole(session.actingSide);
 
   if (!playerRole) {
-    throw new ApiError(400, '当前测试战斗阶段异常');
+    throw new ApiError(400, `当前${modeLabel}阶段异常`);
   }
 
   const playerResults = payload.results
@@ -1216,4 +1296,18 @@ export async function playTowerBattleTurn(
   session.updatedAt = Date.now();
 
   return buildBattleSnapshot(session);
+}
+
+export async function playTowerBattleTurn(
+  playerId: number,
+  input: z.input<typeof towerBattleTurnSchema>,
+) {
+  return playBattleTurn(playerId, input, 'tower');
+}
+
+export async function playTrainingBattleTurn(
+  playerId: number,
+  input: z.input<typeof towerBattleTurnSchema>,
+) {
+  return playBattleTurn(playerId, input, 'training');
 }

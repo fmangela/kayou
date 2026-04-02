@@ -98,14 +98,14 @@ async function startBattle() {
   loading.value = true;
 
   try {
-    battle.value = await apiRequest<TowerBattleSnapshot>('/battle/tower/start', {
+    battle.value = await apiRequest<TowerBattleSnapshot>('/battle/training/start', {
       method: 'POST',
       token: props.token,
       body: {},
     });
     resetPhaseProgress();
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '开始测试战斗失败');
+    ElMessage.error(error instanceof Error ? error.message : '开始战斗训练失败');
   } finally {
     loading.value = false;
   }
@@ -124,7 +124,7 @@ async function submitTurn() {
   loading.value = true;
 
   try {
-    battle.value = await apiRequest<TowerBattleSnapshot>('/battle/tower/turn', {
+    battle.value = await apiRequest<TowerBattleSnapshot>('/battle/training/turn', {
       method: 'POST',
       token: props.token,
       body: {
@@ -170,17 +170,17 @@ function recordMiniGameResult(payload: { score: number; grade: MiniGameGrade }) 
   <section class="tower-battle-panel">
     <header class="battle-header">
       <div>
-        <p class="eyebrow">测试战斗</p>
-        <h3>四槽位爬塔对局</h3>
+        <p class="eyebrow">大厅训练</p>
+        <h3>四槽位战斗训练</h3>
         <p class="battle-copy">
           当前版本已接上 4 张测试卡、4 槽位代理判定、攻守互换和射箭/接球小游戏。
-          这里是开发测试模式，不消耗体力，也不会推进真实塔层。
+          这里是大厅里的单局训练模式，打完这一局就结束，方便反复测试卡组和结算手感。
         </p>
       </div>
 
       <div class="battle-actions">
         <el-button type="primary" :loading="loading" @click="startBattle">
-          {{ battle ? '重新开始测试战斗' : '开始测试战斗' }}
+          {{ battle ? '重新开始战斗训练' : '开始战斗训练' }}
         </el-button>
         <el-button
           v-if="battle?.status === 'in_progress' && stagedResults.length > 0"
@@ -194,9 +194,10 @@ function recordMiniGameResult(payload: { score: number; grade: MiniGameGrade }) 
 
     <div v-if="battle" class="battle-layout">
       <div class="battle-status">
-        <el-tag type="warning">第 {{ battle.floor }} 层测试</el-tag>
+        <el-tag type="warning">单局训练</el-tag>
         <el-tag>{{ roleLabel(battle.playerRole) }}</el-tag>
         <el-tag type="success">第 {{ battle.round }} 回合 / 第 {{ battle.phase }} 阶段</el-tag>
+        <el-tag>训练难度 {{ battle.difficultyTier }}</el-tag>
         <el-tag type="info">小游戏：{{ miniGameLabel(battle.nextMiniGameType) }}</el-tag>
       </div>
 
@@ -330,10 +331,10 @@ function recordMiniGameResult(payload: { score: number; grade: MiniGameGrade }) 
       </section>
 
       <section v-else class="battle-finished" :class="battle.status">
-        <strong>{{ battle.status === 'won' ? '测试战斗胜利' : '测试战斗结束' }}</strong>
+        <strong>{{ battle.status === 'won' ? '战斗训练胜利' : '战斗训练结束' }}</strong>
         <p>
           {{ battle.status === 'won'
-            ? '这一版会保留战斗过程，但不会改动真实塔层和体力。'
+            ? '这一局已经打完，可以直接再开一局继续测卡牌、小游戏和技能反馈。'
             : '可以直接重新开始，再继续调试卡组、技能和小游戏手感。' }}
         </p>
       </section>
