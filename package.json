@@ -1,0 +1,26 @@
+{
+  "name": "kayou",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24.14.0",
+    "npm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n game,admin,server -c magenta,cyan,green \"npm run dev:game\" \"npm run dev:admin\" \"npm run dev:server\"",
+    "dev:game": "npm run dev --workspace @kayou/game",
+    "dev:admin": "npm run dev --workspace @kayou/admin",
+    "dev:server": "npm run dev --workspace @kayou/server",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "typescript": "^5.7.3"
+  }
+}
+
