@@ -1,8 +1,10 @@
 {
   "name": "kayou-workspace",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "bash ./run-dev.sh",
+    "deploy": "bash ./deploy.sh",
     "start": "bash ./run-dev.sh"
   }
 }

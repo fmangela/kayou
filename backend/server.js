@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const { SECRET } = require('./routes/auth');
 
@@ -10,6 +11,7 @@ app.use(express.json());
 
 // Static assets
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
+const FRONTEND_DIST = path.join(__dirname, '../frontend/dist');
 
 // Auth middleware
 function authMiddleware(req, res, next) {
@@ -30,6 +32,13 @@ app.use('/api/llm', authMiddleware, require('./routes/llm'));
 app.use('/api/drawing', authMiddleware, require('./routes/drawing'));
 app.use('/api/images', authMiddleware, require('./routes/images'));
 app.use('/api/cards', authMiddleware, require('./routes/cards'));
+
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  app.get(/^(?!\/api|\/assets).*/, (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  });
+}
 
 const PORT = 3174;
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
