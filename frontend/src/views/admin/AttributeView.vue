@@ -22,7 +22,7 @@
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <el-button @click="downloadTemplate"><el-icon><Download /></el-icon> 导入模板</el-button>
-          <el-upload :show-file-list="false" accept=".csv" :before-upload="handleImport" style="display:inline">
+          <el-upload :show-file-list="false" accept=".csv,.xlsx,.xls" :before-upload="handleImport" style="display:inline">
             <el-button><el-icon><Upload /></el-icon> 导入属性</el-button>
           </el-upload>
           <el-button type="primary" @click="handleExport"><el-icon><Download /></el-icon> 导出当前筛选</el-button>

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "node server.js",
+    "migrate:assets": "node ./scripts/migrate-asset-names.js",
     "migrate:mysql": "node ./scripts/migrate-sqlite-to-mysql.js",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -24,6 +25,7 @@
     "multer": "^2.1.1",
     "mysql2": "^3.20.0",
     "pinyin": "^4.0.0",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "xlsx": "^0.18.5"
   }
 }

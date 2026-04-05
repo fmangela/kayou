@@ -18,9 +18,9 @@
               :value="item.character_id"
             />
           </el-select>
-          <span style="color:#666;font-size:12px">当前是卡牌制作初版，支持选皮肤、选字段、调字体与位置并保存。</span>
+          <span style="color:#666;font-size:12px">这里维护的是全局卡牌模板，保存后会作为所有卡牌的通用渲染配置。</span>
         </div>
-        <el-button type="primary" :loading="saving" :disabled="!detail.attribute" @click="saveDesign">保存卡牌制作配置</el-button>
+        <el-button type="primary" :loading="saving" :disabled="!detail.attribute" @click="saveDesign">保存全局卡牌模板</el-button>
       </div>
     </el-card>
 
@@ -30,7 +30,7 @@
       <el-col :span="11">
         <el-card v-loading="loadingDetail">
           <template #header>
-            <span style="font-weight:bold">制作配置</span>
+            <span style="font-weight:bold">全局制作模板</span>
           </template>
 
           <div v-if="detail.attribute">
@@ -75,6 +75,9 @@
                 {{ selectedFieldKey ? `当前选中：${fieldLabelMap[selectedFieldKey]}` : '点击右侧预览中的字段框即可选中并拖动' }}
               </div>
             </div>
+            <div style="color:#666;font-size:12px;margin-bottom:12px">
+              字段坐标会按整张卡 2:3 画布的相对位置保存，长文本也会按最大行数裁切，这样同一套模板可以稳定复用到其他卡牌。
+            </div>
             <el-collapse accordion>
               <el-collapse-item v-for="field in visibleFieldDefs" :key="field.key" :name="field.key" :title="field.label">
                 <el-form :model="fieldSettings[field.key]" label-width="80px">
@@ -109,6 +112,11 @@
                     <el-col :span="12">
                       <el-form-item label="字号">
                         <el-input-number v-model="fieldSettings[field.key].fontSize" :min="10" :max="48" style="width:100%" />
+                      </el-form-item>
+                    </el-col>
+                    <el-col :span="12">
+                      <el-form-item label="最大行数">
+                        <el-input-number v-model="fieldSettings[field.key].maxLines" :min="1" :max="8" style="width:100%" />
                       </el-form-item>
                     </el-col>
                     <el-col :span="12">
@@ -211,23 +219,23 @@ const fieldDefs = [
 const fieldLabelMap = Object.fromEntries(fieldDefs.map(field => [field.key, field.label]))
 
 const defaultLayouts = {
-  name: { x: 24, y: 26, width: 180, fontSize: 28, color: '#ffffff', fontWeight: '700', textAlign: 'left' },
-  background: { x: 24, y: 374, width: 200, fontSize: 12, color: '#fff9dd', fontWeight: '400', textAlign: 'left' },
-  card_code: { x: 190, y: 28, width: 120, fontSize: 14, color: '#f7e7a1', fontWeight: '700', textAlign: 'right' },
-  series_name: { x: 24, y: 70, width: 120, fontSize: 15, color: '#ffe8a3', fontWeight: '700', textAlign: 'left' },
-  faction_name: { x: 150, y: 70, width: 80, fontSize: 15, color: '#d8f0ff', fontWeight: '700', textAlign: 'center' },
-  rarity: { x: 244, y: 70, width: 72, fontSize: 18, color: '#ffd24d', fontWeight: '700', textAlign: 'right' },
-  force_value: { x: 24, y: 312, width: 92, fontSize: 16, color: '#ffb3b3', fontWeight: '700', textAlign: 'center' },
-  intellect_value: { x: 112, y: 312, width: 92, fontSize: 16, color: '#cde7ff', fontWeight: '700', textAlign: 'center' },
-  speed_value: { x: 200, y: 312, width: 92, fontSize: 16, color: '#d1ffd5', fontWeight: '700', textAlign: 'center' },
-  stamina_value: { x: 288, y: 312, width: 92, fontSize: 16, color: '#ffe3ba', fontWeight: '700', textAlign: 'center' },
-  element_name: { x: 24, y: 102, width: 100, fontSize: 16, color: '#ffffff', fontWeight: '700', textAlign: 'left' },
-  skill1_name: { x: 24, y: 418, width: 200, fontSize: 16, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
-  skill1_desc: { x: 24, y: 442, width: 280, fontSize: 12, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
-  skill2_name: { x: 24, y: 474, width: 200, fontSize: 16, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
-  skill2_desc: { x: 24, y: 498, width: 280, fontSize: 12, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
-  skill3_name: { x: 24, y: 530, width: 200, fontSize: 16, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
-  skill3_desc: { x: 24, y: 554, width: 280, fontSize: 12, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
+  name: { x: 24, y: 26, width: 180, fontSize: 28, maxLines: 1, color: '#ffffff', fontWeight: '700', textAlign: 'left' },
+  background: { x: 24, y: 374, width: 320, fontSize: 12, maxLines: 4, color: '#fff9dd', fontWeight: '400', textAlign: 'left' },
+  card_code: { x: 190, y: 28, width: 120, fontSize: 14, maxLines: 1, color: '#f7e7a1', fontWeight: '700', textAlign: 'right' },
+  series_name: { x: 24, y: 70, width: 120, fontSize: 15, maxLines: 1, color: '#ffe8a3', fontWeight: '700', textAlign: 'left' },
+  faction_name: { x: 150, y: 70, width: 80, fontSize: 15, maxLines: 1, color: '#d8f0ff', fontWeight: '700', textAlign: 'center' },
+  rarity: { x: 244, y: 70, width: 72, fontSize: 18, maxLines: 1, color: '#ffd24d', fontWeight: '700', textAlign: 'right' },
+  force_value: { x: 24, y: 312, width: 92, fontSize: 16, maxLines: 1, color: '#ffb3b3', fontWeight: '700', textAlign: 'center' },
+  intellect_value: { x: 112, y: 312, width: 92, fontSize: 16, maxLines: 1, color: '#cde7ff', fontWeight: '700', textAlign: 'center' },
+  speed_value: { x: 200, y: 312, width: 92, fontSize: 16, maxLines: 1, color: '#d1ffd5', fontWeight: '700', textAlign: 'center' },
+  stamina_value: { x: 288, y: 312, width: 92, fontSize: 16, maxLines: 1, color: '#ffe3ba', fontWeight: '700', textAlign: 'center' },
+  element_name: { x: 24, y: 102, width: 100, fontSize: 16, maxLines: 1, color: '#ffffff', fontWeight: '700', textAlign: 'left' },
+  skill1_name: { x: 24, y: 418, width: 200, fontSize: 16, maxLines: 1, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
+  skill1_desc: { x: 24, y: 442, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
+  skill2_name: { x: 24, y: 474, width: 200, fontSize: 16, maxLines: 1, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
+  skill2_desc: { x: 24, y: 498, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
+  skill3_name: { x: 24, y: 530, width: 200, fontSize: 16, maxLines: 1, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
+  skill3_desc: { x: 24, y: 554, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
 }
 
 const defaultVisibleFields = ['name', 'card_code', 'series_name', 'faction_name', 'rarity', 'force_value', 'intellect_value', 'speed_value', 'stamina_value']
@@ -259,6 +267,87 @@ const dragState = reactive({
 
 const PREVIEW_WIDTH = 360
 const PREVIEW_HEIGHT = 540
+const LAYOUT_META = Object.freeze({
+  unit: 'relative',
+  baseWidth: PREVIEW_WIDTH,
+  baseHeight: PREVIEW_HEIGHT,
+  aspectRatio: '2:3',
+})
+
+function toFiniteNumber(value, fallback) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
+}
+
+function scaleRelativeValue(value, total, fallback) {
+  const num = Number(value)
+  return Number.isFinite(num) ? Math.round(num * total) : fallback
+}
+
+function roundLayoutRatio(value) {
+  return Math.round(toFiniteNumber(value, 0) * 1000000) / 1000000
+}
+
+function estimateFieldHeight(setting) {
+  const fontSize = toFiniteNumber(setting?.fontSize, 16)
+  const maxLines = Math.max(1, Math.round(toFiniteNumber(setting?.maxLines, 1)))
+  return Math.max(Math.ceil(fontSize * 1.35 * maxLines + 8), 40)
+}
+
+function deserializeLayoutSetting(key, layoutConfig = {}) {
+  const base = defaultLayouts[key]
+  const raw = layoutConfig?.[key] || {}
+  const isRelative = layoutConfig?.__meta?.unit === 'relative'
+  const merged = {
+    ...base,
+    ...raw,
+  }
+
+  if (!isRelative) {
+    return {
+      ...merged,
+      maxLines: Math.max(1, Math.round(toFiniteNumber(merged.maxLines, base.maxLines))),
+    }
+  }
+
+  return {
+    ...merged,
+    x: scaleRelativeValue(raw.x, PREVIEW_WIDTH, base.x),
+    y: scaleRelativeValue(raw.y, PREVIEW_HEIGHT, base.y),
+    width: scaleRelativeValue(raw.width, PREVIEW_WIDTH, base.width),
+    fontSize: scaleRelativeValue(raw.fontSize, PREVIEW_HEIGHT, base.fontSize),
+    maxLines: Math.max(1, Math.round(toFiniteNumber(raw.maxLines, base.maxLines))),
+  }
+}
+
+function serializeLayoutConfig(settings = {}) {
+  const payload = {
+    __meta: { ...LAYOUT_META },
+  }
+
+  for (const field of fieldDefs) {
+    const base = defaultLayouts[field.key]
+    const setting = settings[field.key] || base
+    const clamped = clampFieldPosition(
+      field.key,
+      toFiniteNumber(setting.x, base.x),
+      toFiniteNumber(setting.y, base.y),
+      setting
+    )
+    payload[field.key] = {
+      x: roundLayoutRatio(clamped.x / PREVIEW_WIDTH),
+      y: roundLayoutRatio(clamped.y / PREVIEW_HEIGHT),
+      width: roundLayoutRatio(toFiniteNumber(setting.width, base.width) / PREVIEW_WIDTH),
+      fontSize: roundLayoutRatio(toFiniteNumber(setting.fontSize, base.fontSize) / PREVIEW_HEIGHT),
+      maxLines: Math.max(1, Math.round(toFiniteNumber(setting.maxLines, base.maxLines))),
+      color: setting.color || base.color,
+      fontWeight: setting.fontWeight || base.fontWeight,
+      textAlign: setting.textAlign || base.textAlign,
+    }
+  }
+
+  return payload
+}
 
 function ensureFieldSettings() {
   for (const field of fieldDefs) {
@@ -324,6 +413,8 @@ const effectOverlayStyle = computed(() => {
 function getPreviewTextStyle(key) {
   const setting = fieldSettings[key] || defaultLayouts[key]
   const selected = selectedFieldKey.value === key
+  const maxLines = Math.max(1, Math.round(toFiniteNumber(setting.maxLines, 1)))
+  const isSingleLine = maxLines === 1
   return {
     position: 'absolute',
     left: `${setting.x}px`,
@@ -334,7 +425,6 @@ function getPreviewTextStyle(key) {
     color: setting.color,
     textAlign: setting.textAlign,
     lineHeight: 1.35,
-    whiteSpace: 'pre-wrap',
     padding: '4px 6px',
     borderRadius: '6px',
     border: selected ? '1px dashed rgba(255,255,255,0.65)' : '1px solid transparent',
@@ -346,6 +436,15 @@ function getPreviewTextStyle(key) {
     fontFamily: fieldFonts[key] || fontOptions[0].value,
     cursor: selected ? 'move' : 'pointer',
     userSelect: 'none',
+    maxHeight: `${estimateFieldHeight(setting)}px`,
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
+    display: isSingleLine ? 'block' : '-webkit-box',
+    whiteSpace: isSingleLine ? 'nowrap' : 'normal',
+    textOverflow: isSingleLine ? 'ellipsis' : 'clip',
+    WebkitLineClamp: String(maxLines),
+    WebkitBoxOrient: 'vertical',
   }
 }
 
@@ -353,10 +452,10 @@ function selectField(key) {
   selectedFieldKey.value = key
 }
 
-function clampFieldPosition(key, x, y) {
-  const setting = fieldSettings[key] || defaultLayouts[key]
+function clampFieldPosition(key, x, y, customSetting = null) {
+  const setting = customSetting || fieldSettings[key] || defaultLayouts[key]
   const maxX = Math.max(0, PREVIEW_WIDTH - Math.min(setting.width || 120, PREVIEW_WIDTH))
-  const maxY = Math.max(0, PREVIEW_HEIGHT - Math.max((setting.fontSize || 16) * 2, 40))
+  const maxY = Math.max(0, PREVIEW_HEIGHT - estimateFieldHeight(setting))
   return {
     x: Math.min(Math.max(0, x), maxX),
     y: Math.min(Math.max(0, y), maxY),
@@ -394,7 +493,9 @@ function startFieldDrag(key, event) {
 
 function applyDesign(design) {
   visibleFields.value = design?.visible_fields?.length ? design.visible_fields : [...defaultVisibleFields]
-  selectedWebpPath.value = design?.selected_webp_path || detail.attribute?.webp_paths?.[0] || ''
+  selectedWebpPath.value = detail.attribute?.webp_paths?.includes(design?.selected_webp_path)
+    ? design.selected_webp_path
+    : (detail.attribute?.webp_paths?.[0] || '')
   selectedFieldKey.value = ''
 
   const effects = []
@@ -405,9 +506,11 @@ function applyDesign(design) {
 
   ensureFieldSettings()
   for (const field of fieldDefs) {
+    const nextSetting = deserializeLayoutSetting(field.key, design?.layout_config || {})
+    const clamped = clampFieldPosition(field.key, nextSetting.x, nextSetting.y, nextSetting)
     fieldSettings[field.key] = {
-      ...defaultLayouts[field.key],
-      ...(design?.layout_config?.[field.key] || {}),
+      ...nextSetting,
+      ...clamped,
     }
     fieldFonts[field.key] = design?.font_config?.[field.key] || fontOptions[0].value
   }
@@ -448,14 +551,12 @@ async function saveDesign() {
   saving.value = true
   try {
     const font_config = {}
-    const layout_config = {}
     fieldDefs.forEach(field => {
       font_config[field.key] = fieldFonts[field.key]
-      layout_config[field.key] = fieldSettings[field.key]
     })
+    const layout_config = serializeLayoutConfig(fieldSettings)
 
     const res = await saveCardMakerDesign(detail.attribute.character_id, {
-      selected_webp_path: selectedWebpPath.value,
       visible_fields: visibleFields.value,
       font_config,
       layout_config,
@@ -466,7 +567,7 @@ async function saveDesign() {
       },
     })
     detail.design = res
-    ElMessage.success('卡牌制作配置已保存')
+    ElMessage.success('全局卡牌模板已保存')
   } catch (e) {
     ElMessage.error(e.message || '保存失败')
   } finally {

@@ -2,10 +2,11 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { query, execute } = require('../db/init');
 const { toPinyin } = require('../services/pinyinService');
+const { parseImportFile } = require('../services/importService');
+const { getCharacterImageDir } = require('../services/assetPathService');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -22,10 +23,19 @@ function cleanupCharacterAssets(row) {
   imagePaths.forEach(removeFileIfExists);
   webpPaths.forEach(removeFileIfExists);
 
-  const folderName = row.pinyin || String(row.id);
-  const imageDir = path.join(__dirname, '../assets/image', folderName);
-  if (fs.existsSync(imageDir)) {
-    fs.rmSync(imageDir, { recursive: true, force: true });
+  const candidateDirs = new Set([
+    getCharacterImageDir(row),
+    ...(imagePaths.map(imagePath => path.dirname(path.join(__dirname, '..', imagePath)))),
+  ]);
+
+  for (const imageDir of candidateDirs) {
+    if (fs.existsSync(imageDir)) {
+      try {
+        fs.rmdirSync(imageDir);
+      } catch {
+        // keep non-empty directories
+      }
+    }
   }
 }
 
@@ -149,8 +159,7 @@ router.post('/batch-delete', async (req, res, next) => {
 
 router.post('/import', upload.single('file'), async (req, res, next) => {
   try {
-    const content = req.file.buffer.toString('utf-8');
-    const records = parse(content, { columns: true, skip_empty_lines: true });
+    const records = parseImportFile(req.file);
     let inserted = 0;
 
     for (const row of records) {
@@ -163,7 +172,7 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 
     res.json({ inserted });
   } catch (error) {
-    next(error);
+    res.status(400).json({ message: error.message || '导入失败，请检查文件格式' });
   }
 });
 

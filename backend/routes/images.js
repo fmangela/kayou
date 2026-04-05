@@ -4,10 +4,11 @@ const fs = require('fs');
 const sharp = require('sharp');
 const { query, execute } = require('../db/init');
 const { autoCropImage, getManualCropOptions, cropImage } = require('../services/imageService');
+const { buildWebpFilename, getWebpRoot } = require('../services/assetPathService');
 
 const router = express.Router();
 
-const WEBP_DIR = path.join(__dirname, '../assets/webp');
+const WEBP_DIR = getWebpRoot();
 
 router.post('/crop', async (req, res) => {
   const { imagePath, mode, left, top, width, height } = req.body;
@@ -36,7 +37,6 @@ router.post('/to-webp', async (req, res) => {
 
   fs.mkdirSync(WEBP_DIR, { recursive: true });
 
-  const pinyin = row.pinyin || String(row.id);
   const existingWebp = JSON.parse(row.webp_paths || '[]');
   const newWebpPaths = [];
 
@@ -46,7 +46,7 @@ router.post('/to-webp', async (req, res) => {
     const suffix = imagePaths.length > 1
       ? `-${existingWebp.length + i + 1}`
       : (existingWebp.length > 0 ? `-${existingWebp.length + 1}` : '');
-    const filename = `${pinyin}${suffix}.webp`;
+    const filename = buildWebpFilename(row, suffix);
     const destPath = path.join(WEBP_DIR, filename);
     await sharp(absPath).webp({ quality: 90 }).toFile(destPath);
     newWebpPaths.push(`/assets/webp/${filename}`);

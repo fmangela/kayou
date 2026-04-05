@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
-const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const { query, execute } = require('../db/init');
+const { parseImportFile } = require('../services/importService');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -74,6 +74,8 @@ const NUMERIC_FIELDS = new Set([
   'stamina_value',
 ]);
 
+const CARD_MAKER_SETTING_KEY = 'card_maker_design';
+
 function parseJson(value, fallback) {
   try {
     return value ? JSON.parse(value) : fallback;
@@ -100,11 +102,54 @@ function normalizeAttributeRow(row) {
 function normalizeDesignRow(row) {
   return {
     ...row,
+    selected_webp_path: row.selected_webp_path || null,
     visible_fields: parseJson(row.visible_fields, []),
     font_config: parseJson(row.font_config, {}),
     layout_config: parseJson(row.layout_config, {}),
     effect_config: parseJson(row.effect_config, {}),
   };
+}
+
+function normalizeStoredDesign(payload = {}) {
+  return {
+    selected_webp_path: payload.selected_webp_path || null,
+    visible_fields: Array.isArray(payload.visible_fields) ? payload.visible_fields : [],
+    font_config: payload.font_config && typeof payload.font_config === 'object' ? payload.font_config : {},
+    layout_config: payload.layout_config && typeof payload.layout_config === 'object' ? payload.layout_config : {},
+    effect_config: payload.effect_config && typeof payload.effect_config === 'object' ? payload.effect_config : {},
+    scope: payload.scope || 'global',
+    schema_version: Number(payload.schema_version) || 1,
+  };
+}
+
+async function getSharedCardMakerDesign() {
+  const rows = await query('SELECT `value` FROM settings WHERE `key` = ?', [CARD_MAKER_SETTING_KEY]);
+  if (!rows.length) return null;
+  const payload = parseJson(rows[0].value, null);
+  if (!payload || typeof payload !== 'object') return null;
+  return normalizeStoredDesign({
+    ...payload,
+    selected_webp_path: null,
+    scope: 'global',
+    schema_version: Number(payload.schema_version) || 2,
+  });
+}
+
+async function getLegacyCardMakerDesign(characterId) {
+  const rows = await query('SELECT * FROM card_designs ORDER BY updated_at DESC, character_id ASC LIMIT 1');
+  if (!rows.length) return null;
+
+  const design = normalizeDesignRow(rows[0]);
+  return normalizeStoredDesign({
+    ...design,
+    selected_webp_path: rows[0].character_id === characterId ? design.selected_webp_path : null,
+    scope: 'legacy-character',
+    schema_version: 1,
+  });
+}
+
+async function getCardMakerDesign(characterId) {
+  return (await getSharedCardMakerDesign()) || (await getLegacyCardMakerDesign(characterId));
 }
 
 function buildAttributeWhereClause(filters) {
@@ -279,9 +324,7 @@ router.get('/attributes/template', async (req, res, next) => {
 
 router.post('/attributes/import', upload.single('file'), async (req, res, next) => {
   try {
-    if (!req.file) return res.status(400).json({ message: '请先选择 CSV 文件' });
-    const content = req.file.buffer.toString('utf-8');
-    const records = parse(content, { columns: true, skip_empty_lines: true });
+    const records = parseImportFile(req.file);
     const nameMapRows = await query('SELECT id, name FROM characters');
     const nameToId = new Map(nameMapRows.map(row => [row.name, row.id]));
     let updated = 0;
@@ -315,7 +358,7 @@ router.post('/attributes/import', upload.single('file'), async (req, res, next) 
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ message: '导入内容中存在重复卡牌编号' });
     }
-    next(error);
+    res.status(400).json({ message: error.message || '导入失败，请检查文件格式' });
   }
 });
 
@@ -357,11 +400,9 @@ router.get('/maker/:characterId', async (req, res, next) => {
   try {
     const rows = await getAttributeRows({ character_id: characterId });
     if (!rows.length) return res.status(404).json({ message: '人物不存在' });
-
-    const designRows = await query('SELECT * FROM card_designs WHERE character_id = ?', [characterId]);
     res.json({
       attribute: rows[0],
-      design: designRows[0] ? normalizeDesignRow(designRows[0]) : null,
+      design: await getCardMakerDesign(characterId),
     });
   } catch (error) {
     next(error);
@@ -373,7 +414,6 @@ router.put('/maker/:characterId', async (req, res, next) => {
   if (!characterId) return res.status(400).json({ message: '人物 ID 无效' });
 
   const {
-    selected_webp_path = null,
     visible_fields = [],
     font_config = {},
     layout_config = {},
@@ -381,36 +421,35 @@ router.put('/maker/:characterId', async (req, res, next) => {
   } = req.body;
 
   try {
+    const characterRows = await query('SELECT id FROM characters WHERE id = ?', [characterId]);
+    if (!characterRows.length) return res.status(404).json({ message: '人物不存在' });
+
+    const payload = {
+      selected_webp_path: null,
+      visible_fields: Array.isArray(visible_fields) ? visible_fields : [],
+      font_config: font_config && typeof font_config === 'object' ? font_config : {},
+      layout_config: layout_config && typeof layout_config === 'object' ? layout_config : {},
+      effect_config: effect_config && typeof effect_config === 'object' ? effect_config : {},
+      scope: 'global',
+      schema_version: 2,
+    };
+
     await execute(
       `
-        INSERT INTO card_designs (
-          character_id,
-          selected_webp_path,
-          visible_fields,
-          font_config,
-          layout_config,
-          effect_config
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO settings (
+          \`key\`,
+          \`value\`
+        ) VALUES (?, ?)
         ON DUPLICATE KEY UPDATE
-          selected_webp_path = VALUES(selected_webp_path),
-          visible_fields = VALUES(visible_fields),
-          font_config = VALUES(font_config),
-          layout_config = VALUES(layout_config),
-          effect_config = VALUES(effect_config),
-          updated_at = CURRENT_TIMESTAMP
+          \`value\` = VALUES(\`value\`)
       `,
       [
-        characterId,
-        selected_webp_path,
-        JSON.stringify(visible_fields || []),
-        JSON.stringify(font_config || {}),
-        JSON.stringify(layout_config || {}),
-        JSON.stringify(effect_config || {}),
+        CARD_MAKER_SETTING_KEY,
+        JSON.stringify(payload),
       ]
     );
 
-    const rows = await query('SELECT * FROM card_designs WHERE character_id = ?', [characterId]);
-    res.json(normalizeDesignRow(rows[0]));
+    res.json(await getCardMakerDesign(characterId));
   } catch (error) {
     next(error);
   }
