@@ -19,6 +19,10 @@
           <el-icon><Edit /></el-icon>
           <span>卡牌属性编辑</span>
         </el-menu-item>
+        <el-menu-item index="/admin/cards">
+          <el-icon><Tickets /></el-icon>
+          <span>卡牌制作</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

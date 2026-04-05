@@ -33,38 +33,25 @@
       <el-table-column prop="appearance" label="外形描述" show-overflow-tooltip />
       <el-table-column prop="nb2_prompt" label="NB2提示词" show-overflow-tooltip />
       <el-table-column prop="mj_prompt" label="MJ提示词" show-overflow-tooltip />
-      <el-table-column label="图片" width="80">
+      <el-table-column label="图片" width="60">
         <template #default="{ row }">
           <el-tag size="small">{{ row.image_paths?.length || 0 }}张</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="WebP" width="70">
+      <el-table-column label="WebP" width="60">
         <template #default="{ row }">
           <el-tag size="small" type="success">{{ row.webp_paths?.length || 0 }}张</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button size="small" :loading="row._regenDesc" @click="regenDesc(row)">重新生成描述</el-button>
+          <el-button size="small" :loading="row._regenPrompt" @click="regenPrompt(row)">重新生成提示词</el-button>
           <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
-
-    <!-- Generate buttons row -->
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <el-button type="success" :loading="generatingDesc" @click="generateDescriptions()">
-        生成人物描述
-      </el-button>
-      <el-button type="success" :loading="generatingPrompts" @click="generatePrompts()">
-        生成提示词
-      </el-button>
-    </div>
-
-    <!-- Progress log -->
-    <div v-if="progressLog.length" style="margin-top:12px;max-height:120px;overflow-y:auto;background:#f5f5f5;padding:8px;border-radius:4px;font-size:12px">
-      <div v-for="(line, i) in progressLog" :key="i">{{ line }}</div>
-    </div>
   </el-card>
 
   <!-- Add dialog -->
@@ -93,8 +80,6 @@
       </el-form-item>
       <el-form-item label="NB2提示词">
         <el-input v-model="editForm.nb2_prompt" type="textarea" :rows="2" />
-        <el-button size="small" style="margin-top:4px" :loading="regenLoading.nb2" @click="regenDesc(editForm.id)">重新生成描述</el-button>
-        <el-button size="small" style="margin-top:4px" :loading="regenLoading.prompt" @click="regenPrompt(editForm.id)">重新生成提示词</el-button>
       </el-form-item>
       <el-form-item label="MJ提示词">
         <el-input v-model="editForm.mj_prompt" type="textarea" :rows="2" />
@@ -114,6 +99,7 @@ import {
   getCharacters, createCharacter, updateCharacter,
   deleteCharacter, batchDeleteCharacters, importCharacters, exportCharacters
 } from '../../api/character'
+import { buildApiUrl } from '../../api/runtime'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -124,10 +110,6 @@ const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const addForm = ref({ name: '' })
 const editForm = ref({})
-const generatingDesc = ref(false)
-const generatingPrompts = ref(false)
-const progressLog = ref([])
-const regenLoading = ref({ nb2: false, prompt: false })
 
 async function loadData() {
   loading.value = true
@@ -137,6 +119,8 @@ async function loadData() {
     loading.value = false
   }
 }
+
+defineExpose({ loadData })
 
 async function handleAdd() {
   try {
@@ -191,14 +175,18 @@ async function handleImport(file) {
   return false
 }
 
-function handleExport() {
-  exportCharacters()
+async function handleExport() {
+  try {
+    await exportCharacters()
+  } catch (e) {
+    ElMessage.error(e.message || '导出失败')
+  }
 }
 
-function streamGenerate(url, body, doneCallback) {
-  progressLog.value = []
+function streamRegen(url, body, row, flagKey) {
+  row[flagKey] = true
   const token = auth.token
-  fetch(`http://localhost:3174/api${url}`, {
+  fetch(buildApiUrl(url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
@@ -215,54 +203,28 @@ function streamGenerate(url, body, doneCallback) {
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         const data = line.slice(6)
-        if (data === '[DONE]') { doneCallback(); return }
+        if (data === '[DONE]') { row[flagKey] = false; loadData(); return }
         try {
           const obj = JSON.parse(data)
-          if (obj.error) progressLog.value.push(`❌ ID ${obj.id}: ${obj.error}`)
-          else progressLog.value.push(`✓ ID ${obj.id} 完成`)
-          // update local data
           const idx = characters.value.findIndex(c => c.id === obj.id)
           if (idx !== -1) characters.value[idx] = { ...characters.value[idx], ...obj }
         } catch {}
       }
     }
-    doneCallback()
+    row[flagKey] = false
+    loadData()
   }).catch(e => {
     ElMessage.error(e.message)
-    doneCallback()
+    row[flagKey] = false
   })
 }
 
-function generateDescriptions(id) {
-  generatingDesc.value = true
-  streamGenerate('/llm/generate-descriptions', id ? { id } : {}, () => {
-    generatingDesc.value = false
-    loadData()
-  })
+function regenDesc(row) {
+  streamRegen('/llm/generate-descriptions', { id: row.id }, row, '_regenDesc')
 }
 
-function generatePrompts(id) {
-  generatingPrompts.value = true
-  streamGenerate('/llm/generate-prompts', id ? { id } : {}, () => {
-    generatingPrompts.value = false
-    loadData()
-  })
-}
-
-async function regenDesc(id) {
-  regenLoading.value.nb2 = true
-  streamGenerate('/llm/generate-descriptions', { id }, () => {
-    regenLoading.value.nb2 = false
-    loadData()
-  })
-}
-
-async function regenPrompt(id) {
-  regenLoading.value.prompt = true
-  streamGenerate('/llm/generate-prompts', { id }, () => {
-    regenLoading.value.prompt = false
-    loadData()
-  })
+function regenPrompt(row) {
+  streamRegen('/llm/generate-prompts', { id: row.id }, row, '_regenPrompt')
 }
 
 onMounted(loadData)

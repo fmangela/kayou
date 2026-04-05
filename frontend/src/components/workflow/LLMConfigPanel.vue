@@ -21,6 +21,21 @@
 
     <el-divider />
 
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <el-button type="success" :loading="generatingDesc" @click="handleGenerateDesc">
+        生成人物描述
+      </el-button>
+      <el-button type="success" :loading="generatingPrompts" @click="handleGeneratePrompts">
+        生成提示词
+      </el-button>
+    </div>
+
+    <div v-if="progressLog.length" style="margin-top:12px;max-height:120px;overflow-y:auto;background:#f5f5f5;padding:8px;border-radius:4px;font-size:12px">
+      <div v-for="(line, i) in progressLog" :key="i">{{ line }}</div>
+    </div>
+
+    <el-divider />
+
     <div style="font-weight:bold;margin-bottom:12px">MX AI 绘画配置</div>
     <el-form :model="mxForm" label-width="120px" inline>
       <el-form-item label="MX API Key">
@@ -40,12 +55,20 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getLLMConfig, saveLLMConfig, testLLMConnection, getMxConfig, saveMxConfig as saveMxApi } from '../../api/llm'
+import { buildApiUrl } from '../../api/runtime'
+import { useAuthStore } from '../../stores/auth'
+
+const emit = defineEmits(['refresh'])
+const auth = useAuthStore()
 
 const llmForm = ref({ base_url: '', api_key: '', model: '' })
 const mxForm = ref({ api_key: '', base_url: '' })
 const saving = ref(false)
 const testing = ref(false)
 const savingMx = ref(false)
+const generatingDesc = ref(false)
+const generatingPrompts = ref(false)
+const progressLog = ref([])
 
 async function loadConfigs() {
   try {
@@ -89,6 +112,56 @@ async function saveMxConfig() {
   } finally {
     savingMx.value = false
   }
+}
+
+function streamGenerate(url, body, loadingRef, doneCallback) {
+  progressLog.value = []
+  loadingRef.value = true
+  const token = auth.token
+  fetch(buildApiUrl(url), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  }).then(async (resp) => {
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop()
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data === '[DONE]') { doneCallback(); return }
+        try {
+          const obj = JSON.parse(data)
+          if (obj.error) progressLog.value.push(`❌ ID ${obj.id}: ${obj.error}`)
+          else progressLog.value.push(`✓ ID ${obj.id} 完成`)
+        } catch {}
+      }
+    }
+    doneCallback()
+  }).catch(e => {
+    ElMessage.error(e.message)
+    doneCallback()
+  })
+}
+
+function handleGenerateDesc() {
+  streamGenerate('/llm/generate-descriptions', {}, generatingDesc, () => {
+    generatingDesc.value = false
+    emit('refresh')
+  })
+}
+
+function handleGeneratePrompts() {
+  streamGenerate('/llm/generate-prompts', {}, generatingPrompts, () => {
+    generatingPrompts.value = false
+    emit('refresh')
+  })
 }
 
 onMounted(loadConfigs)

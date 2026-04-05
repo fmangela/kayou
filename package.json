@@ -1,0 +1,8 @@
+{
+  "name": "kayou-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "bash ./run-dev.sh",
+    "start": "bash ./run-dev.sh"
+  }
+}

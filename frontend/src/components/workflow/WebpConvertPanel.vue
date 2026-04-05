@@ -16,7 +16,7 @@
               style="position:relative"
             >
               <el-image
-                :src="`http://localhost:3174${p}`"
+                :src="buildAssetUrl(p)"
                 style="width:40px;height:60px;object-fit:cover;cursor:pointer;border-radius:2px"
                 fit="cover"
                 @click="toggleSelect(row.id, p)"
@@ -38,7 +38,7 @@
             <el-image
               v-for="(p, i) in row.webp_paths"
               :key="i"
-              :src="`http://localhost:3174${p}`"
+              :src="buildAssetUrl(p)"
               style="width:40px;height:60px;object-fit:cover;cursor:pointer;border-radius:2px"
               fit="cover"
               @click="openWebpPreview(row, i)"
@@ -71,7 +71,7 @@
     </el-table>
 
     <!-- WebP preview dialog -->
-    <el-dialog v-model="webpPreview.visible" :title="`${webpPreview.character?.name} - WebP预览`" width="700px">
+    <el-dialog v-model="webpPreview.visible" :title="`${webpPreview.character?.name} - WebP预览`" width="900px">
       <div v-if="webpPreview.character">
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
           <div
@@ -82,7 +82,7 @@
             @click="webpPreview.activeIndex = i"
           >
             <el-image
-              :src="`http://localhost:3174${p}`"
+              :src="buildAssetUrl(p)"
               style="width:80px;height:120px;object-fit:cover;border-radius:4px"
               fit="cover"
             />
@@ -97,12 +97,16 @@
             </el-button>
           </div>
         </div>
-        <el-image
+        <div
           v-if="webpPreview.character.webp_paths?.length"
-          :src="`http://localhost:3174${webpPreview.character.webp_paths[webpPreview.activeIndex]}`"
-          style="width:100%;max-height:500px;object-fit:contain"
-          fit="contain"
-        />
+          style="width:min(100%,420px);aspect-ratio:2 / 3;display:flex;align-items:center;justify-content:center;margin:0 auto;background:#f7f7f7;border-radius:6px;overflow:hidden"
+        >
+          <img
+            :src="buildAssetUrl(webpPreview.character.webp_paths[webpPreview.activeIndex])"
+            alt="WebP预览"
+            style="width:100%;height:100%;object-fit:contain;object-position:center;display:block"
+          />
+        </div>
       </div>
     </el-dialog>
   </el-card>
@@ -113,6 +117,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCharacters } from '../../api/character'
 import http from '../../api/http'
+import { buildAssetUrl } from '../../api/runtime'
 
 const characters = ref([])
 const loading = ref(false)

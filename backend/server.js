@@ -29,6 +29,7 @@ app.use('/api/characters', authMiddleware, require('./routes/characters'));
 app.use('/api/llm', authMiddleware, require('./routes/llm'));
 app.use('/api/drawing', authMiddleware, require('./routes/drawing'));
 app.use('/api/images', authMiddleware, require('./routes/images'));
+app.use('/api/cards', authMiddleware, require('./routes/cards'));
 
 const PORT = 3174;
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
