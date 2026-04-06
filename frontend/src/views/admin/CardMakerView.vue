@@ -144,31 +144,39 @@
         </el-card>
       </el-col>
 
-      <el-col :span="13" style="align-self:flex-start">
-        <div style="position:sticky;top:20px">
-          <el-card v-loading="loadingDetail">
-          <template #header>
-            <span style="font-weight:bold">成品预览</span>
-          </template>
-
+      <el-col :span="13">
+        <div ref="previewContainerRef" style="position:relative;min-height:600px">
           <div
-            v-if="detail.attribute && selectedWebpPath"
-            :style="previewFrameStyle"
+            ref="previewRef"
+            style="position:fixed;top:76px;right:24px;width:420px;z-index:100"
           >
-            <img :src="buildAssetUrl(selectedWebpPath)" alt="卡牌底图" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />
-            <div :style="effectOverlayStyle" />
-            <div
-              v-for="field in previewFields"
-              :key="field.key"
-              :style="getPreviewTextStyle(field.key)"
-              @click.stop="selectField(field.key)"
-              @mousedown.stop.prevent="startFieldDrag(field.key, $event)"
-            >
-              {{ field.text }}
-            </div>
+            <el-card v-loading="loadingDetail">
+              <template #header>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-weight:bold">成品预览</span>
+                  <el-tag size="small" type="info">固定预览</el-tag>
+                </div>
+              </template>
+
+              <div
+                v-if="detail.attribute && selectedWebpPath"
+                :style="previewFrameStyle"
+              >
+                <img :src="buildAssetUrl(selectedWebpPath)" alt="卡牌底图" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />
+                <div :style="effectOverlayStyle" />
+                <div
+                  v-for="field in previewFields"
+                  :key="field.key"
+                  :style="getPreviewTextStyle(field.key)"
+                  @click.stop="selectField(field.key)"
+                  @mousedown.stop.prevent="startFieldDrag(field.key, $event)"
+                >
+                  {{ field.text }}
+                </div>
+              </div>
+              <el-empty v-else description="当前人物还没有 WebP 图片，先去图片工作流完成 WebP 转换" />
+            </el-card>
           </div>
-          <el-empty v-else description="当前人物还没有 WebP 图片，先去图片工作流完成 WebP 转换" />
-          </el-card>
         </div>
       </el-col>
     </el-row>
