@@ -174,13 +174,14 @@ const currentGameDef = computed(() => {
 const computedParams = computed(() => {
   if (!currentGameDef.value) return {}
   const vars = { ...cardValues }
+  const allowedKeys = Object.keys(vars)
   const result = {}
   for (const param of currentGameDef.value.params) {
     const formula = formulaInputs[param.key] || param.defaultFormula
     try {
-      // Safe eval using Function with only allowed variable names
-      const fn = new Function(...Object.keys(vars), `return (${formula})`)
-      const val = fn(...Object.values(vars))
+      // Restrict scope to card variable names only
+      const fn = new Function(...allowedKeys, `"use strict"; return (${formula})`)
+      const val = fn(...allowedKeys.map(k => vars[k]))
       result[param.key] = typeof val === 'number' && isFinite(val) ? Math.max(0.1, val) : 0
     } catch {
       result[param.key] = 0
@@ -206,10 +207,10 @@ async function onGameChange(id) {
   try {
     const g = await getGame(id)
     selectedGame.value = g
-    // Populate formula inputs from saved config
+    const config = g.formula_config && typeof g.formula_config === 'object' ? g.formula_config : {}
     if (currentGameDef.value) {
       for (const param of currentGameDef.value.params) {
-        formulaInputs[param.key] = g.formula_config?.[param.key] || param.defaultFormula
+        formulaInputs[param.key] = config[param.key] || param.defaultFormula
       }
     }
   } catch (e) {

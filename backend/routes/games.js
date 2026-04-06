@@ -7,7 +7,10 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const rows = await query('SELECT * FROM games ORDER BY id ASC');
-    res.json(rows);
+    res.json(rows.map(g => ({
+      ...g,
+      formula_config: g.formula_config ? JSON.parse(g.formula_config) : {},
+    })));
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -30,11 +33,13 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { formula_config } = req.body;
-    await execute(
+    const result = await execute(
       'UPDATE games SET formula_config = ?, updated_at = NOW() WHERE id = ?',
       [JSON.stringify(formula_config || {}), req.params.id]
     );
+    if (!result.affectedRows) return res.status(404).json({ message: '未找到' });
     const rows = await query('SELECT * FROM games WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ message: '未找到' });
     const game = rows[0];
     if (game.formula_config) game.formula_config = JSON.parse(game.formula_config);
     res.json(game);
