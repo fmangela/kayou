@@ -148,7 +148,7 @@
         <div ref="previewContainerRef" style="position:relative;min-height:600px">
           <div
             ref="previewRef"
-            style="position:fixed;top:76px;right:24px;width:420px;z-index:100"
+            :style="previewFixedStyle"
           >
             <el-card v-loading="loadingDetail">
               <template #header>
@@ -393,6 +393,20 @@ const previewFrameStyle = computed(() => ({
     ? '0 22px 48px rgba(0,0,0,0.32), inset 0 0 0 2px rgba(255,255,255,0.08)'
     : '0 18px 40px rgba(0,0,0,0.22)',
 }))
+
+const previewFixedStyle = computed(() => {
+  const headerHeight = 60 // 顶部导航栏高度
+  const gap = 16 // 与顶部间距
+  return {
+    position: 'fixed',
+    top: `${headerHeight + gap}px`,
+    right: '24px',
+    width: '420px',
+    zIndex: 100,
+    maxHeight: `calc(100vh - ${headerHeight + gap * 2}px)`,
+    overflow: 'auto',
+  }
+})
 
 const effectOverlayStyle = computed(() => {
   const styles = {
