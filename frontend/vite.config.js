@@ -2,9 +2,12 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
-  plugins: [vue()],
-  server: {
-    host: '0.0.0.0',
-    port: 5174,
-  },
+    plugins: [vue()],
+    server: {
+        host: '0.0.0.0',
+        port: Number(process.env.FRONTEND_PORT) || 5174,
+    },
+    define: {
+        'process.env.BACKEND_PORT': JSON.stringify(process.env.BACKEND_PORT || '3174'),
+    },
 })

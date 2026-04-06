@@ -15,14 +15,14 @@ const FRONTEND_DIST = path.join(__dirname, '../frontend/dist');
 
 // Auth middleware
 function authMiddleware(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ message: '未登录' });
-  try {
-    jwt.verify(auth.slice(7), SECRET);
-    next();
-  } catch {
-    res.status(401).json({ message: 'Token无效或已过期' });
-  }
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ message: '未登录' });
+    try {
+        jwt.verify(auth.slice(7), SECRET);
+        next();
+    } catch {
+        res.status(401).json({ message: 'Token无效或已过期' });
+    }
 }
 
 // Routes
@@ -35,11 +35,11 @@ app.use('/api/cards', authMiddleware, require('./routes/cards'));
 app.use('/api/games', authMiddleware, require('./routes/games'));
 
 if (fs.existsSync(FRONTEND_DIST)) {
-  app.use(express.static(FRONTEND_DIST));
-  app.get(/^(?!\/api|\/assets).*/, (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
-  });
+    app.use(express.static(FRONTEND_DIST));
+    app.get(/^(?!\/api|\/assets).*/, (req, res) => {
+        res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+    });
 }
 
-const PORT = 3174;
+const PORT = process.env.BACKEND_PORT || 3174;
 app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));
