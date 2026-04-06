@@ -32,6 +32,7 @@ app.use('/api/llm', authMiddleware, require('./routes/llm'));
 app.use('/api/drawing', authMiddleware, require('./routes/drawing'));
 app.use('/api/images', authMiddleware, require('./routes/images'));
 app.use('/api/cards', authMiddleware, require('./routes/cards'));
+app.use('/api/games', authMiddleware, require('./routes/games'));
 
 if (fs.existsSync(FRONTEND_DIST)) {
   app.use(express.static(FRONTEND_DIST));
@@ -41,4 +42,4 @@ if (fs.existsSync(FRONTEND_DIST)) {
 }
 
 const PORT = 3174;
-app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));

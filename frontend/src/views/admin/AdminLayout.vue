@@ -23,6 +23,10 @@
           <el-icon><Tickets /></el-icon>
           <span>卡牌制作</span>
         </el-menu-item>
+        <el-menu-item index="/admin/games">
+          <el-icon><Trophy /></el-icon>
+          <span>小游戏制作</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

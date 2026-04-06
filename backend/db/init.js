@@ -77,6 +77,22 @@ async function initSchema(pool) {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS games (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      game_key VARCHAR(64) NOT NULL UNIQUE,
+      name VARCHAR(255) NOT NULL,
+      formula_config LONGTEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO games (game_key, name, formula_config) VALUES
+    ('archery', '射箭', '{"swing_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","time_limit":"5*(1+(my_force-enemy_force)/enemy_force)"}')
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS card_designs (
       character_id INT NOT NULL PRIMARY KEY,
       selected_webp_path VARCHAR(1024) DEFAULT NULL,

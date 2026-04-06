@@ -12,6 +12,7 @@ const routes = [
       { path: 'workflow', component: () => import('../views/admin/WorkflowView.vue') },
       { path: 'attributes', component: () => import('../views/admin/AttributeView.vue') },
       { path: 'cards', component: () => import('../views/admin/CardMakerView.vue') },
+      { path: 'games', component: () => import('../views/admin/GameMakerView.vue') },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/admin' },
