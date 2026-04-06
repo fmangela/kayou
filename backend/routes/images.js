@@ -44,13 +44,8 @@ router.post('/to-webp', async (req, res) => {
         const absPath = path.join(__dirname, '..', imagePaths[i]);
         if (!fs.existsSync(absPath)) continue;
 
-        // 先自动裁切再转 WebP
-        try {
-            await autoCropImage(absPath);
-        } catch (cropError) {
-            // 如果裁切失败（比如图片尺寸太小），跳过裁切直接转 WebP
-            console.log(`裁切失败，直接转 WebP: ${imagePaths[i]}, 错误：${cropError.message}`);
-        }
+        // 先自动裁切再转 WebP（前端上传时已验证尺寸至少 750x1125）
+        await autoCropImage(absPath);
 
         const suffix = imagePaths.length > 1
             ? `-${existingWebp.length + i + 1}`
