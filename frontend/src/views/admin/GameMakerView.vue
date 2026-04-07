@@ -101,6 +101,46 @@
       :time-limit="computedParams.time_limit ?? 5"
       @score="onScore"
     />
+
+    <!-- Soccer game dialog -->
+    <SoccerGame
+      v-if="selectedGame?.game_key === 'soccer'"
+      v-model="gameVisible"
+      :goalkeeper-speed="computedParams.goalkeeper_speed ?? 1"
+      :swing-speed="computedParams.swing_speed ?? 1"
+      :time-limit="computedParams.time_limit ?? 10"
+      @score="onScore"
+    />
+
+    <!-- Tennis game dialog -->
+    <TennisGame
+      v-if="selectedGame?.game_key === 'tennis'"
+      v-model="gameVisible"
+      :ball-speed="computedParams.ball_speed ?? 1"
+      :landing-range="computedParams.landing_range ?? 0.5"
+      :time-limit="computedParams.time_limit ?? 15"
+      @score="onScore"
+    />
+
+    <!-- Golf game dialog -->
+    <GolfGame
+      v-if="selectedGame?.game_key === 'golf'"
+      v-model="gameVisible"
+      :power-speed="computedParams.power_speed ?? 1"
+      :green-zone="computedParams.green_zone ?? 0.3"
+      :time-limit="computedParams.time_limit ?? 10"
+      @score="onScore"
+    />
+
+    <!-- Swimming game dialog -->
+    <SwimmingGame
+      v-if="selectedGame?.game_key === 'swimming'"
+      v-model="gameVisible"
+      :opponent-speed="computedParams.opponent_speed ?? 1"
+      :rhythm-window="computedParams.rhythm_window ?? 0.5"
+      :time-limit="computedParams.time_limit ?? 15"
+      @score="onScore"
+    />
   </div>
 </template>
 
@@ -109,6 +149,10 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getGames, getGame, saveGame } from '../../api/games'
 import ArcheryGame from '../../components/games/ArcheryGame.vue'
+import SoccerGame from '../../components/games/SoccerGame.vue'
+import TennisGame from '../../components/games/TennisGame.vue'
+import GolfGame from '../../components/games/GolfGame.vue'
+import SwimmingGame from '../../components/games/SwimmingGame.vue'
 
 // Card attribute params definition
 const cardParams = [
@@ -140,6 +184,110 @@ const GAME_DEFS = {
         unit: '秒',
         defaultFormula: '5*(1+(my_force-enemy_force)/enemy_force)',
         formulaDesc: '游戏总时长，我方武力越高时间越充裕',
+      },
+    ],
+  },
+  soccer: {
+    name: '足球',
+    params: [
+      {
+        key: 'goalkeeper_speed',
+        label: '守门员速度',
+        unit: '秒/来回',
+        defaultFormula: '1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))',
+        formulaDesc: '数值越小守门员移动越快，越难射门',
+      },
+      {
+        key: 'swing_speed',
+        label: '晃动速度',
+        unit: '秒/来回',
+        defaultFormula: '1*(1+(enemy_intellect-my_intellect)/my_intellect)',
+        formulaDesc: '射门方向箭头晃动速度，数值越小越难瞄准',
+      },
+      {
+        key: 'time_limit',
+        label: '剩余时间',
+        unit: '秒',
+        defaultFormula: '10*(1+(my_force-enemy_force)/enemy_force)',
+        formulaDesc: '游戏总时长，我方武力越高时间越充裕',
+      },
+    ],
+  },
+  tennis: {
+    name: '网球',
+    params: [
+      {
+        key: 'ball_speed',
+        label: '来球速度',
+        unit: '秒/球',
+        defaultFormula: '1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))',
+        formulaDesc: '球从对手侧飞来的时间，数值越小越快越难接',
+      },
+      {
+        key: 'landing_range',
+        label: '落点变化范围',
+        unit: '比例',
+        defaultFormula: '0.5*(1+(enemy_intellect-my_intellect)/my_intellect)',
+        formulaDesc: '球落点的随机偏移幅度（0~1），数值越大越难追',
+      },
+      {
+        key: 'time_limit',
+        label: '剩余时间',
+        unit: '秒',
+        defaultFormula: '15*(1+(my_force-enemy_force)/enemy_force)',
+        formulaDesc: '游戏总时长，我方武力越高时间越充裕',
+      },
+    ],
+  },
+  golf: {
+    name: '高尔夫',
+    params: [
+      {
+        key: 'power_speed',
+        label: '力度条速度',
+        unit: '秒/来回',
+        defaultFormula: '1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))',
+        formulaDesc: '力度条上下跳动速度，数值越小越快越难控制',
+      },
+      {
+        key: 'green_zone',
+        label: '绿色区间宽度',
+        unit: '比例',
+        defaultFormula: '0.3*(1+(my_intellect-enemy_intellect)/enemy_intellect)',
+        formulaDesc: '进洞有效区间占力度条的比例（0~1），数值越小越难命中',
+      },
+      {
+        key: 'time_limit',
+        label: '剩余时间',
+        unit: '秒',
+        defaultFormula: '10*(1+(my_force-enemy_force)/enemy_force)',
+        formulaDesc: '游戏总时长，我方武力越高时间越充裕',
+      },
+    ],
+  },
+  swimming: {
+    name: '游泳',
+    params: [
+      {
+        key: 'opponent_speed',
+        label: '对手速度',
+        unit: '倍率',
+        defaultFormula: '1*(1+(enemy_speed-my_speed)/my_speed)',
+        formulaDesc: '对手泳者前进速度倍率，数值越大对手越快',
+      },
+      {
+        key: 'rhythm_window',
+        label: '最佳节奏窗口',
+        unit: '秒',
+        defaultFormula: '0.5*(1-(my_intellect-enemy_intellect)/(my_intellect+enemy_intellect))',
+        formulaDesc: '每次按键的理想间隔时间，在窗口内按键速度加成最大',
+      },
+      {
+        key: 'time_limit',
+        label: '游戏时间',
+        unit: '秒',
+        defaultFormula: '15*(1+(my_stamina-enemy_stamina)/enemy_stamina)',
+        formulaDesc: '游戏总时长，我方体力越高时间越充裕',
       },
     ],
   },

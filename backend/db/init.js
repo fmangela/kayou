@@ -89,7 +89,11 @@ async function initSchema(pool) {
 
   await pool.query(`
     INSERT IGNORE INTO games (game_key, name, formula_config) VALUES
-    ('archery', '射箭', '{"swing_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","time_limit":"5*(1+(my_force-enemy_force)/enemy_force)"}')
+    ('archery', '射箭', '{"swing_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","time_limit":"5*(1+(my_force-enemy_force)/enemy_force)"}'),
+    ('soccer', '足球', '{"goalkeeper_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","swing_speed":"1*(1+(enemy_intellect-my_intellect)/my_intellect)","time_limit":"10*(1+(my_force-enemy_force)/enemy_force)"}'),
+    ('tennis', '网球', '{"ball_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","landing_range":"0.5*(1+(enemy_intellect-my_intellect)/my_intellect)","time_limit":"15*(1+(my_force-enemy_force)/enemy_force)"}'),
+    ('golf', '高尔夫', '{"power_speed":"1*(1-2*(my_speed-enemy_speed)/(my_speed+enemy_speed))","green_zone":"0.3*(1+(my_intellect-enemy_intellect)/enemy_intellect)","time_limit":"10*(1+(my_force-enemy_force)/enemy_force)"}'),
+    ('swimming', '游泳', '{"opponent_speed":"1*(1+(enemy_speed-my_speed)/my_speed)","rhythm_window":"0.5*(1-(my_intellect-enemy_intellect)/(my_intellect+enemy_intellect))","time_limit":"15*(1+(my_stamina-enemy_stamina)/enemy_stamina)"}')
   `);
 
   await pool.query(`
