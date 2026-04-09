@@ -51,3 +51,9 @@ export const importCardAttributes = (file) => {
   form.append('file', file)
   return http.post('/cards/attributes/import', form)
 }
+
+export const getLmConfig = () => http.get('/cards/lm-config')
+export const saveLmConfig = (data) => http.put('/cards/lm-config', data)
+export const generateCardCodes = (episode) => http.post('/cards/attributes/generate-code', { episode })
+export const generateAiAttributes = (character_ids, prompts) =>
+  http.post('/cards/attributes/generate-ai', { character_ids, prompts })

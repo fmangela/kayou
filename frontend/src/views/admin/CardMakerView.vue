@@ -395,18 +395,14 @@ const previewFrameStyle = computed(() => ({
 }))
 
 const previewFixedStyle = computed(() => {
-  const headerHeight = 60 // 顶部 header 高度
-  const gap = 20 // 与顶部间距
-  const sidebarWidth = 200 // 左侧侧边栏宽度
-  const rightMargin = 20 // 右侧边距
-  
   return {
-    position: 'fixed',
-    top: `${headerHeight + gap}px`,
-    right: `${rightMargin}px`,
-    width: '400px',
-    zIndex: 100,
-    maxHeight: `calc(100vh - ${headerHeight + gap * 2}px)`,
+    position: 'sticky',
+    top: '16px',
+    width: '100%',
+    maxWidth: '400px',
+    margin: '0 auto',
+    zIndex: 1,
+    maxHeight: 'calc(100vh - 32px)',
     overflow: 'auto',
   }
 })
