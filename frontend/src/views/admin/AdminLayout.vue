@@ -27,6 +27,10 @@
           <el-icon><Trophy /></el-icon>
           <span>小游戏制作</span>
         </el-menu-item>
+        <el-menu-item index="/admin/battle">
+          <el-icon><Flag /></el-icon>
+          <span>对战测试</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

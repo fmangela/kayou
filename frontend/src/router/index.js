@@ -13,6 +13,7 @@ const routes = [
       { path: 'attributes', component: () => import('../views/admin/AttributeView.vue') },
       { path: 'cards', component: () => import('../views/admin/CardMakerView.vue') },
       { path: 'games', component: () => import('../views/admin/GameMakerView.vue') },
+      { path: 'battle', component: () => import('../views/admin/BattleTestView.vue') },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/admin' },
