@@ -83,7 +83,7 @@
      <el-dialog
       v-model="battleDialogVisible"
       :title="phase === 'result' ? '对战结果' : '对战测试'"
-      width="1600px"
+      width="95%"
       top="4vh"
       :close-on-click-modal="false"
       :close-on-press-escape="true"
@@ -99,85 +99,94 @@
           style="margin-bottom:12px"
         />
 
-        <template v-if="phase === 'battle' || phase === 'result'">
-          <el-card style="margin-bottom:12px">
-            <template #header>
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <span style="font-weight:bold">对战场地</span>
-                <el-tag v-if="phase === 'result'" :type="resultTag">{{ resultText }}</el-tag>
-                <span v-else style="font-size:13px;color:#666">第 {{ roundNum }} 轮 · {{ turnLabel }}</span>
-              </div>
-            </template>
+         <template v-if="phase === 'battle' || phase === 'result'">
+           <el-card style="margin-bottom:12px">
+             <template #header>
+               <div style="display:flex;align-items:center;justify-content:space-between">
+                 <span style="font-weight:bold">对战场地</span>
+                 <el-tag v-if="phase === 'result'" :type="resultTag">{{ resultText }}</el-tag>
+                 <span v-else style="font-size:13px;color:#666">第 {{ roundNum }} 轮 · {{ turnLabel }}</span>
+               </div>
+             </template>
 
-            <div v-if="dicePhase" style="text-align:center;padding:24px 0">
-              <div style="font-size:15px;color:#666;margin-bottom:12px">掷骰子决定先后手（1-20）</div>
-              <div style="display:flex;justify-content:center;gap:48px;margin-bottom:16px">
-                <div style="text-align:center">
-                  <div style="font-size:13px;color:#666;margin-bottom:6px">电脑</div>
-                  <div :style="diceStyle(cpuDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (cpuDiceRoll || '?') }}</div>
-                </div>
-                <div style="text-align:center">
-                  <div style="font-size:13px;color:#666;margin-bottom:6px">玩家</div>
-                  <div :style="diceStyle(playerDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (playerDiceRoll || '?') }}</div>
-                </div>
-              </div>
-               <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:16px">
-                 {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
+             <!-- 双方卡牌始终显示 -->
+             <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">电脑</div>
+             <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:16px">
+               <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
+                 <div
+                   v-for="(card, i) in battleCpuCards"
+                   :key="'bc-' + i"
+                   :style="battleCardWrapStyle('cpu', i)"
+                 >
+                   <CardPreview
+                     :attribute="card"
+                     :design="sharedDesign"
+                     :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                     :width="375"
+                     :is-captain="i === 0"
+                     :show-hp="true"
+                     :current-hp="cpuHp[i]"
+                     :max-hp="card ? (card.stamina_value || 100) : 100"
+                     :is-dead="cpuHp[i] <= 0"
+                   />
+                   <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
+                 </div>
                </div>
              </div>
 
-            <div v-else>
-              <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">电脑</div>
-               <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:16px">
-                 <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
-                  <div
-                    v-for="(card, i) in battleCpuCards"
-                    :key="'bc-' + i"
-                    :style="battleCardWrapStyle('cpu', i)"
-                  >
-                    <CardPreview
-                      :attribute="card"
-                      :design="sharedDesign"
-                      :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="375"
-                      :is-captain="i === 0"
-                      :show-hp="true"
-                      :current-hp="cpuHp[i]"
-                      :max-hp="card ? (card.stamina_value || 100) : 100"
-                      :is-dead="cpuHp[i] <= 0"
-                    />
-                    <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
-                  </div>
-                </div>
-              </div>
+             <el-divider style="margin:8px 0 14px" />
 
-              <el-divider style="margin:8px 0 14px" />
+             <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
+             <div style="overflow-x:auto;padding-bottom:8px">
+               <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
+                 <div
+                   v-for="(card, i) in battlePlayerCards"
+                   :key="'bp-' + i"
+                   :style="battleCardWrapStyle('player', i)"
+                 >
+                   <CardPreview
+                     :attribute="card"
+                     :design="sharedDesign"
+                     :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                     :width="375"
+                     :is-captain="i === 0"
+                     :show-hp="true"
+                     :current-hp="playerHp[i]"
+                     :max-hp="card ? (card.stamina_value || 100) : 100"
+                     :is-dead="playerHp[i] <= 0"
+                   />
+                   <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'player'" size="small" type="success">进行中</el-tag>
+                 </div>
+               </div>
+             </div>
+           </el-card>
 
-              <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
-               <div style="overflow-x:auto;padding-bottom:8px">
-                 <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
-                  <div
-                    v-for="(card, i) in battlePlayerCards"
-                    :key="'bp-' + i"
-                    :style="battleCardWrapStyle('player', i)"
-                  >
-                    <CardPreview
-                      :attribute="card"
-                      :design="sharedDesign"
-                      :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="375"
-                      :is-captain="i === 0"
-                      :show-hp="true"
-                      :current-hp="playerHp[i]"
-                      :max-hp="card ? (card.stamina_value || 100) : 100"
-                      :is-dead="playerHp[i] <= 0"
-                    />
-                    <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'player'" size="small" type="success">进行中</el-tag>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </el-card>
+           <!-- 掷骰子对话框 -->
+           <el-dialog
+             v-model="diceDialogVisible"
+             title="掷骰子决定先后手"
+             width="500px"
+             :close-on-click-modal="false"
+             :close-on-press-escape="false"
+             :show-close="false"
+           >
+             <div style="text-align:center;padding:12px 0">
+               <div style="font-size:15px;color:#666;margin-bottom:12px">掷骰子决定先后手（1-20）</div>
+               <div style="display:flex;justify-content:center;gap:48px;margin-bottom:16px">
+                 <div style="text-align:center">
+                   <div style="font-size:13px;color:#666;margin-bottom:6px">电脑</div>
+                   <div :style="diceStyle(cpuDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (cpuDiceRoll || '?') }}</div>
+                 </div>
+                 <div style="text-align:center">
+                   <div style="font-size:13px;color:#666;margin-bottom:6px">玩家</div>
+                   <div :style="diceStyle(playerDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (playerDiceRoll || '?') }}</div>
+                 </div>
+               </div>
+               <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:8px">
+                 {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
+               </div>
+             </div>
+           </el-dialog>
 
           <el-card v-if="cpuPlaying && phase === 'battle'" style="margin-bottom:12px">
             <div style="display:flex;align-items:center;gap:10px;color:#909399">
@@ -334,6 +343,7 @@ const battleLog = ref([])
 const logRef = ref(null)
 
 // Dice
+const diceDialogVisible = ref(false)
 const dicePhase = ref(false)
 const diceRolling = ref(false)
 const diceAnim = ref('?')
@@ -603,7 +613,8 @@ function startBattle() {
   cpuPlaying.value = false
   phase.value = 'battle'
   addLog('=== 对战开始 ===', 'info')
-  addLog('当前测试模式已关闭小游戏加载，双方回合自动模拟得分。', 'info')
+  addLog('当前测试模式已关闭小游戏加载，双方回合都会自动模拟得分。', 'info')
+  diceDialogVisible.value = true
   rollDice()
 }
 
@@ -633,6 +644,7 @@ function onBattleDialogClosed() {
 
 // ── DICE ──────────────────────────────────────────────────────────────────────
 function rollDice() {
+  diceDialogVisible.value = true
   dicePhase.value = true
   diceRolling.value = true
   cpuDiceRoll.value = 0
@@ -657,9 +669,12 @@ function rollDice() {
 }
 
 function afterDice() {
+  diceDialogVisible.value = false
   if (cpuDiceRoll.value === playerDiceRoll.value) {
     addLog('平局，重新掷骰！', 'info')
-    rollDice()
+    setTimeout(() => {
+      rollDice()
+    }, 500)
     return
   }
   const firstTurn = cpuDiceRoll.value > playerDiceRoll.value ? 'cpu' : 'player'
