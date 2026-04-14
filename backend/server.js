@@ -33,6 +33,7 @@ app.use('/api/drawing', authMiddleware, require('./routes/drawing'));
 app.use('/api/images', authMiddleware, require('./routes/images'));
 app.use('/api/cards', authMiddleware, require('./routes/cards'));
 app.use('/api/games', authMiddleware, require('./routes/games'));
+app.use('/api/skills', authMiddleware, require('./routes/skills'));
 
 if (fs.existsSync(FRONTEND_DIST)) {
     app.use(express.static(FRONTEND_DIST));

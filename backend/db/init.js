@@ -115,6 +115,80 @@ async function initSchema(pool) {
     ('pianotiles', '钢琴块', '{"drop_speed":"4*(1+(enemy_speed-my_speed)/my_speed)","double_tap_prob":"0.1*(1+(enemy_intellect-my_intellect)/my_intellect)","hold_ratio":"0.2*(1+(enemy_stamina-my_stamina)/my_stamina)","pattern_length":"16*(1+0.5*(my_stamina-enemy_stamina)/enemy_stamina)"}')
   `);
 
+  // Skill engine tables
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS skill_templates (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      template_key VARCHAR(64) NOT NULL UNIQUE,
+      name VARCHAR(255) NOT NULL,
+      skill_type ENUM('active','passive','trigger','continuous','conditional','ultimate','aura','captain') NOT NULL DEFAULT 'passive',
+      trigger_domain ENUM('card','battle','settle','growth','display') NOT NULL DEFAULT 'card',
+      effect_atom VARCHAR(64) NOT NULL DEFAULT 'modify_stat_flat',
+      param_slots LONGTEXT COMMENT 'JSON array of {key,label,unit,default,min,max}',
+      description_template TEXT COMMENT 'Template string with {param} placeholders',
+      applicable_rarities LONGTEXT COMMENT 'JSON array of rarity strings',
+      strength_budget LONGTEXT COMMENT 'JSON {recommended,min,max}',
+      status ENUM('active','deprecated') NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  `);
+
+  await pool.query(`
+    INSERT IGNORE INTO skill_templates (template_key, name, skill_type, trigger_domain, effect_atom, param_slots, description_template, applicable_rarities, strength_budget) VALUES
+    ('stat_boost_flat', '属性加成', 'passive', 'card', 'modify_stat_flat',
+      '[{"key":"stat","label":"属性","unit":"","default":"force_value","min":null,"max":null,"options":["force_value","intellect_value","speed_value","stamina_value"]},{"key":"value","label":"数值","unit":"点","default":10,"min":1,"max":100}]',
+      '{stat} +{value}',
+      '["N","R","CP","SR","SSR","HR","UR","PR"]',
+      '{"recommended":10,"min":1,"max":100}'),
+    ('stat_boost_ratio', '属性倍率加成', 'passive', 'card', 'modify_stat_ratio',
+      '[{"key":"stat","label":"属性","unit":"","default":"force_value","min":null,"max":null,"options":["force_value","intellect_value","speed_value","stamina_value"]},{"key":"ratio","label":"倍率","unit":"%","default":10,"min":1,"max":50}]',
+      '{stat} +{ratio}%',
+      '["SSR","HR","UR","PR"]',
+      '{"recommended":10,"min":1,"max":50}'),
+    ('battle_start_boost', '开局加成', 'trigger', 'battle', 'modify_stat_flat',
+      '[{"key":"stat","label":"属性","unit":"","default":"force_value","min":null,"max":null,"options":["force_value","intellect_value","speed_value","stamina_value"]},{"key":"value","label":"数值","unit":"点","default":15,"min":1,"max":150}]',
+      '对局开始时，{stat} +{value}',
+      '["SR","SSR","HR","UR","PR"]',
+      '{"recommended":15,"min":5,"max":150}'),
+    ('settle_bonus', '结算补正', 'trigger', 'settle', 'modify_damage_flat',
+      '[{"key":"value","label":"补正值","unit":"点","default":5,"min":1,"max":50}]',
+      '结算时额外获得 {value} 点加成',
+      '["SSR","HR","UR","PR"]',
+      '{"recommended":5,"min":1,"max":50}'),
+    ('faction_aura', '阵营光环', 'aura', 'battle', 'modify_stat_ratio',
+      '[{"key":"stat","label":"属性","unit":"","default":"force_value","min":null,"max":null,"options":["force_value","intellect_value","speed_value","stamina_value"]},{"key":"ratio","label":"倍率","unit":"%","default":5,"min":1,"max":30}]',
+      '同阵营卡牌 {stat} +{ratio}%',
+      '["SSR","HR","UR","PR"]',
+      '{"recommended":5,"min":1,"max":30}')
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS skill_definitions (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      skill_uid VARCHAR(64) NOT NULL UNIQUE COMMENT 'Stable unique ID, e.g. sk_001',
+      version INT NOT NULL DEFAULT 1,
+      name VARCHAR(255) NOT NULL,
+      short_desc TEXT,
+      long_desc TEXT,
+      template_id INT DEFAULT NULL,
+      params LONGTEXT COMMENT 'JSON object of filled param values',
+      skill_type ENUM('active','passive','trigger','continuous','conditional','ultimate','aura','captain') NOT NULL DEFAULT 'passive',
+      trigger_event VARCHAR(64) DEFAULT NULL,
+      effect_atom VARCHAR(64) DEFAULT NULL,
+      target VARCHAR(64) DEFAULT 'self_card',
+      tags LONGTEXT COMMENT 'JSON array of tag strings',
+      applicable_rarities LONGTEXT COMMENT 'JSON array',
+      slot_semantic ENUM('main','sub','awakening') DEFAULT 'main',
+      source ENUM('lm_generated','manual','template_copy','imported') DEFAULT 'lm_generated',
+      status ENUM('draft','pending','published','disabled','archived') DEFAULT 'draft',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_skill_def_template
+        FOREIGN KEY (template_id) REFERENCES skill_templates(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS card_designs (
       character_id INT NOT NULL PRIMARY KEY,

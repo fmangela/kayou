@@ -154,6 +154,7 @@ function startGame() {
   normalCount.value = 0
   missCount.value = 0
   feedbackText.value = ''
+  inputDir = 0
   prepareBall()
 
   let count = 6
@@ -206,6 +207,9 @@ function gameLoop(now) {
       missCount.value++
       flash('没接到！', '#f56c6c')
       advanceBall()
+    }
+    if (phase.value === 'playing') {
+      rafId = requestAnimationFrame(gameLoop)
     }
     return
   }

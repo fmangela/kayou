@@ -1,220 +1,209 @@
 <template>
   <div>
-    <!-- Setup phase -->
-    <template v-if="phase === 'setup'">
-      <!-- Computer cards -->
-      <el-card style="margin-bottom:12px">
-        <template #header><span style="font-weight:bold">电脑卡组（4张）</span></template>
-        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+    <el-card style="margin-bottom:12px">
+      <template #header><span style="font-weight:bold">电脑卡组（4张）</span></template>
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div
+          v-for="(slot, i) in 4"
+          :key="'cpu-' + i"
+          style="display:flex;flex-direction:column;align-items:center;gap:6px"
+        >
           <div
-            v-for="(slot, i) in 4"
-            :key="'cpu-' + i"
-            style="display:flex;flex-direction:column;align-items:center;gap:6px"
+            :draggable="!!cpuCards[i]"
+            @dragstart="onDragStart('cpu', i)"
+            @dragover.prevent
+            @drop="onDrop('cpu', i)"
+            style="cursor:pointer"
+            @click="openPicker('cpu', i)"
           >
-            <div
-              :draggable="!!cpuCards[i]"
-              @dragstart="onDragStart('cpu', i)"
-              @dragover.prevent
-              @drop="onDrop('cpu', i)"
-              style="cursor:pointer"
-              @click="openPicker('cpu', i)"
-            >
-              <CardPreview
-                v-if="cpuCards[i]"
-                :attribute="cpuCards[i]"
-                :design="sharedDesign"
-                :webp-path="cpuCards[i].webp_paths && cpuCards[i].webp_paths[0]"
-                :width="120"
-                :is-captain="i === 0"
-              />
-              <div v-else :style="emptySlotStyle">
-                <el-icon style="font-size:24px;color:#ccc"><Plus /></el-icon>
-                <div style="font-size:11px;color:#aaa;margin-top:4px">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
+            <CardPreview
+              v-if="cpuCards[i]"
+              :attribute="cpuCards[i]"
+              :design="sharedDesign"
+              :webp-path="cpuCards[i].webp_paths && cpuCards[i].webp_paths[0]"
+              :width="120"
+              :is-captain="i === 0"
+            />
+            <div v-else :style="emptySlotStyle">
+              <el-icon style="font-size:24px;color:#ccc"><Plus /></el-icon>
+              <div style="font-size:11px;color:#aaa;margin-top:4px">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#666">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
+        </div>
+        <el-button style="align-self:center" @click="openPickerBatch('cpu')">批量选择</el-button>
+      </div>
+    </el-card>
+
+    <el-card style="margin-bottom:12px">
+      <template #header><span style="font-weight:bold">玩家卡组（4张）</span></template>
+      <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div
+          v-for="(slot, i) in 4"
+          :key="'player-' + i"
+          style="display:flex;flex-direction:column;align-items:center;gap:6px"
+        >
+          <div
+            :draggable="!!playerCards[i]"
+            @dragstart="onDragStart('player', i)"
+            @dragover.prevent
+            @drop="onDrop('player', i)"
+            style="cursor:pointer"
+            @click="openPicker('player', i)"
+          >
+            <CardPreview
+              v-if="playerCards[i]"
+              :attribute="playerCards[i]"
+              :design="sharedDesign"
+              :webp-path="playerCards[i].webp_paths && playerCards[i].webp_paths[0]"
+              :width="120"
+              :is-captain="i === 0"
+            />
+            <div v-else :style="emptySlotStyle">
+              <el-icon style="font-size:24px;color:#ccc"><Plus /></el-icon>
+              <div style="font-size:11px;color:#aaa;margin-top:4px">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#666">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
+        </div>
+        <el-button style="align-self:center" @click="openPickerBatch('player')">批量选择</el-button>
+      </div>
+    </el-card>
+
+    <el-card>
+      <el-button
+        type="primary"
+        size="large"
+        :disabled="cpuCards.filter(Boolean).length < 4 || playerCards.filter(Boolean).length < 4"
+        @click="startBattle"
+      >开始测试</el-button>
+      <span style="margin-left:12px;font-size:12px;color:#999">需要双方各选满4张卡牌</span>
+    </el-card>
+
+    <el-dialog
+      v-model="battleDialogVisible"
+      :title="phase === 'result' ? '对战结果' : '对战测试'"
+      width="1320px"
+      top="4vh"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="phase === 'result'"
+      @closed="onBattleDialogClosed"
+    >
+      <div style="max-height:78vh;overflow-y:auto;padding-right:4px">
+        <el-alert
+          v-if="phase === 'battle' || phase === 'result'"
+          title="当前测试模式已暂时关闭小游戏加载，双方回合都会自动模拟得分。"
+          type="info"
+          :closable="false"
+          style="margin-bottom:12px"
+        />
+
+        <template v-if="phase === 'battle' || phase === 'result'">
+          <el-card style="margin-bottom:12px">
+            <template #header>
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font-weight:bold">对战场地</span>
+                <el-tag v-if="phase === 'result'" :type="resultTag">{{ resultText }}</el-tag>
+                <span v-else style="font-size:13px;color:#666">第 {{ roundNum }} 轮 · {{ turnLabel }}</span>
+              </div>
+            </template>
+
+            <div v-if="dicePhase" style="text-align:center;padding:24px 0">
+              <div style="font-size:15px;color:#666;margin-bottom:12px">掷骰子决定先后手（1-20）</div>
+              <div style="display:flex;justify-content:center;gap:48px;margin-bottom:16px">
+                <div style="text-align:center">
+                  <div style="font-size:13px;color:#666;margin-bottom:6px">电脑</div>
+                  <div :style="diceStyle(cpuDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (cpuDiceRoll || '?') }}</div>
+                </div>
+                <div style="text-align:center">
+                  <div style="font-size:13px;color:#666;margin-bottom:6px">玩家</div>
+                  <div :style="diceStyle(playerDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (playerDiceRoll || '?') }}</div>
+                </div>
+              </div>
+              <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:16px">
+                {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
+              </div>
+              <el-button v-if="!diceRolling" type="primary" @click="afterDice">继续</el-button>
+            </div>
+
+            <div v-else>
+              <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">电脑</div>
+              <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:16px">
+                <div style="display:flex;gap:14px;justify-content:center;min-width:max-content">
+                  <div
+                    v-for="(card, i) in battleCpuCards"
+                    :key="'bc-' + i"
+                    :style="battleCardWrapStyle('cpu', i)"
+                  >
+                    <CardPreview
+                      :attribute="card"
+                      :design="sharedDesign"
+                      :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                      :width="150"
+                      :is-captain="i === 0"
+                      :show-hp="true"
+                      :current-hp="cpuHp[i]"
+                      :max-hp="card ? (card.stamina_value || 100) : 100"
+                      :is-dead="cpuHp[i] <= 0"
+                    />
+                    <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <el-divider style="margin:8px 0 14px" />
+
+              <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
+              <div style="overflow-x:auto;padding-bottom:8px">
+                <div style="display:flex;gap:14px;justify-content:center;min-width:max-content">
+                  <div
+                    v-for="(card, i) in battlePlayerCards"
+                    :key="'bp-' + i"
+                    :style="battleCardWrapStyle('player', i)"
+                  >
+                    <CardPreview
+                      :attribute="card"
+                      :design="sharedDesign"
+                      :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                      :width="150"
+                      :is-captain="i === 0"
+                      :show-hp="true"
+                      :current-hp="playerHp[i]"
+                      :max-hp="card ? (card.stamina_value || 100) : 100"
+                      :is-dead="playerHp[i] <= 0"
+                    />
+                    <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'player'" size="small" type="success">进行中</el-tag>
+                  </div>
+                </div>
               </div>
             </div>
-            <div style="font-size:11px;color:#666">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
-          </div>
-          <el-button style="align-self:center" @click="openPickerBatch('cpu')">批量选择</el-button>
-        </div>
-      </el-card>
+          </el-card>
 
-      <!-- Player cards -->
-      <el-card style="margin-bottom:12px">
-        <template #header><span style="font-weight:bold">玩家卡组（4张）</span></template>
-        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-          <div
-            v-for="(slot, i) in 4"
-            :key="'player-' + i"
-            style="display:flex;flex-direction:column;align-items:center;gap:6px"
-          >
-            <div
-              :draggable="!!playerCards[i]"
-              @dragstart="onDragStart('player', i)"
-              @dragover.prevent
-              @drop="onDrop('player', i)"
-              style="cursor:pointer"
-              @click="openPicker('player', i)"
-            >
-              <CardPreview
-                v-if="playerCards[i]"
-                :attribute="playerCards[i]"
-                :design="sharedDesign"
-                :webp-path="playerCards[i].webp_paths && playerCards[i].webp_paths[0]"
-                :width="120"
-                :is-captain="i === 0"
-              />
-              <div v-else :style="emptySlotStyle">
-                <el-icon style="font-size:24px;color:#ccc"><Plus /></el-icon>
-                <div style="font-size:11px;color:#aaa;margin-top:4px">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
-              </div>
+          <el-card v-if="cpuPlaying && phase === 'battle'" style="margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;color:#909399">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <span>{{ simulationStatusText }}</span>
             </div>
-            <div style="font-size:11px;color:#666">{{ i === 0 ? '队长' : '牌位' + (i+1) }}</div>
-          </div>
-          <el-button style="align-self:center" @click="openPickerBatch('player')">批量选择</el-button>
-        </div>
-      </el-card>
+          </el-card>
 
-      <el-card>
-        <el-button
-          type="primary"
-          size="large"
-          :disabled="cpuCards.filter(Boolean).length < 4 || playerCards.filter(Boolean).length < 4"
-          @click="startBattle"
-        >开始测试</el-button>
-        <span style="margin-left:12px;font-size:12px;color:#999">需要双方各选满4张卡牌</span>
-      </el-card>
-    </template>
-
-    <!-- Battle phase -->
-    <template v-else-if="phase === 'battle' || phase === 'result'">
-      <!-- Battle field -->
-      <el-card style="margin-bottom:12px">
-        <template #header>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <span style="font-weight:bold">对战场地</span>
-            <el-tag v-if="phase === 'result'" :type="resultTag">{{ resultText }}</el-tag>
-            <span v-else style="font-size:13px;color:#666">第 {{ roundNum }} 轮 · {{ turnLabel }}</span>
-          </div>
+          <el-card>
+            <template #header><span style="font-weight:bold">对战日志</span></template>
+            <div ref="logRef" style="max-height:280px;overflow-y:auto;font-size:13px;line-height:1.8">
+              <div v-for="(entry, i) in battleLog" :key="i" :style="logStyle(entry)">{{ entry.text }}</div>
+              <div v-if="battleLog.length === 0" style="color:#aaa">等待开始…</div>
+            </div>
+          </el-card>
         </template>
+      </div>
 
-        <!-- Dice roll overlay -->
-        <div v-if="dicePhase" style="text-align:center;padding:24px 0">
-          <div style="font-size:15px;color:#666;margin-bottom:12px">掷骰子决定先后手（1-20）</div>
-          <div style="display:flex;justify-content:center;gap:48px;margin-bottom:16px">
-            <div style="text-align:center">
-              <div style="font-size:13px;color:#666;margin-bottom:6px">电脑</div>
-              <div :style="diceStyle(cpuDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (cpuDiceRoll || '?') }}</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:13px;color:#666;margin-bottom:6px">玩家</div>
-              <div :style="diceStyle(playerDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (playerDiceRoll || '?') }}</div>
-            </div>
-          </div>
-          <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:16px">
-            {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
-          </div>
-          <el-button v-if="!diceRolling" type="primary" @click="afterDice">继续</el-button>
+      <template #footer>
+        <div v-if="phase === 'result'" style="display:flex;justify-content:center;gap:12px">
+          <el-button @click="battleDialogVisible = false">关闭</el-button>
+          <el-button type="primary" @click="restartBattle">再来一局</el-button>
         </div>
-
-        <!-- Cards display -->
-        <div v-else>
-          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px">
-            <div style="font-size:12px;color:#666;width:100%;text-align:center">电脑</div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
-            <div v-for="(card, i) in battleCpuCards" :key="'bc-' + i" style="display:flex;flex-direction:column;align-items:center;gap:4px">
-              <CardPreview
-                :attribute="card"
-                :design="sharedDesign"
-                :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                :width="100"
-                :is-captain="i === 0"
-                :show-hp="true"
-                :current-hp="cpuHp[i]"
-                :max-hp="card ? (card.stamina_value || 100) : 100"
-                :is-dead="cpuHp[i] <= 0"
-              />
-              <el-tag v-if="currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
-            </div>
-          </div>
-
-          <el-divider style="margin:8px 0" />
-
-          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px">
-            <div style="font-size:12px;color:#666;width:100%;text-align:center">玩家</div>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">
-            <div v-for="(card, i) in battlePlayerCards" :key="'bp-' + i" style="display:flex;flex-direction:column;align-items:center;gap:4px">
-              <CardPreview
-                :attribute="card"
-                :design="sharedDesign"
-                :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                :width="100"
-                :is-captain="i === 0"
-                :show-hp="true"
-                :current-hp="playerHp[i]"
-                :max-hp="card ? (card.stamina_value || 100) : 100"
-                :is-dead="playerHp[i] <= 0"
-              />
-              <el-tag v-if="currentSlot === i && currentTurn === 'player' && gameVisible" size="small" type="success">进行中</el-tag>
-            </div>
-          </div>
-        </div>
-      </el-card>
-
-      <!-- Battle log -->
-      <el-card style="margin-bottom:12px">
-        <template #header><span style="font-weight:bold">对战日志</span></template>
-        <div ref="logRef" style="max-height:240px;overflow-y:auto;font-size:13px;line-height:1.8">
-          <div v-for="(entry, i) in battleLog" :key="i" :style="logStyle(entry)">{{ entry.text }}</div>
-          <div v-if="battleLog.length === 0" style="color:#aaa">等待开始…</div>
-        </div>
-      </el-card>
-
-      <!-- Active game (player turn only) -->
-      <el-card v-if="attackPhase?.side === 'player' && phase === 'battle'" style="margin-bottom:12px">
-        <template #header>
-          <span style="font-weight:bold">玩家本轮小游戏</span>
-        </template>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div
-            v-for="slot in attackPhase.slots"
-            :key="`player-slot-${slot.boardSlot}`"
-            style="min-width:220px;padding:12px;border:1px solid #ebeef5;border-radius:8px;background:#fafafa"
-          >
-            <div style="font-weight:700;margin-bottom:6px">牌位{{ slot.boardSlot + 1 }} · {{ slot.gameDef.name }}</div>
-            <div style="font-size:12px;color:#666;line-height:1.7;margin-bottom:10px">
-              <div>{{ slotActorLabel(slot.attackBoardSide, slot.boardSlot, slot.attackSlot, slot.attackCard) }}</div>
-              <div>对手：{{ slotActorLabel(slot.defSide, slot.boardSlot, resolveRepresentativeSlot(slot.defSide, slot.boardSlot), getCardByResolvedSlot(slot.defSide, slot.boardSlot)) }}</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <el-tag v-if="slotResultMap[slot.boardSlot] !== undefined" type="success">得分 {{ slotResultMap[slot.boardSlot] }}/5</el-tag>
-              <el-tag v-else-if="activeBoardSlot === slot.boardSlot && gameVisible" type="warning">进行中</el-tag>
-              <el-button
-                v-else
-                type="primary"
-                size="small"
-                :disabled="gameVisible"
-                @click="openPlayerGame(slot.boardSlot)"
-              >开始游戏</el-button>
-            </div>
-          </div>
-        </div>
-        <div style="margin-top:12px;font-size:12px;color:#888">本轮结果全部完成后，会按牌位 1 → 4 顺序统一结算。</div>
-      </el-card>
-
-      <!-- CPU playing indicator -->
-      <el-card v-if="cpuPlaying && phase === 'battle'" style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:10px;color:#909399">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <span>电脑正在出战，请稍候…</span>
-        </div>
-      </el-card>
-
-      <el-card v-if="phase === 'result'">
-        <el-button @click="resetBattle">重新测试</el-button>
-      </el-card>
-    </template>
+      </template>
+    </el-dialog>
 
     <!-- Card picker dialog (single slot) -->
     <el-dialog v-model="pickerVisible" title="选择卡牌" width="860px" :close-on-click-modal="false" @open="onPickerOpen">
@@ -273,31 +262,6 @@
       @confirm="onBatchConfirm"
     />
 
-    <!-- Game dialogs (player turn) -->
-    <ArcheryGame v-if="activeGame?.game_key === 'archery'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <SoccerGame v-if="activeGame?.game_key === 'soccer'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <TennisGame v-if="activeGame?.game_key === 'tennis'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <GolfGame v-if="activeGame?.game_key === 'golf'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <SwimmingGame v-if="activeGame?.game_key === 'swimming'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <RunningGame v-if="activeGame?.game_key === 'running'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <GymnasticsGame v-if="activeGame?.game_key === 'gymnastics'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <BoxingGame v-if="activeGame?.game_key === 'boxing'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <EquestrianGame v-if="activeGame?.game_key === 'equestrian'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <RacingGame v-if="activeGame?.game_key === 'racing'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <ChoppingGame v-if="activeGame?.game_key === 'chopping'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <GuitarGame v-if="activeGame?.game_key === 'guitar'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <NosehairGame v-if="activeGame?.game_key === 'nosehair'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <VolleyballGame v-if="activeGame?.game_key === 'volleyball'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <JumpropeGame v-if="activeGame?.game_key === 'jumprope'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <SnakeGame v-if="activeGame?.game_key === 'snake'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <TetrisGame v-if="activeGame?.game_key === 'tetris'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <BreakoutGame v-if="activeGame?.game_key === 'breakout'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <PinballGame v-if="activeGame?.game_key === 'pinball'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <TankGame v-if="activeGame?.game_key === 'tank'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <AirplaneGame v-if="activeGame?.game_key === 'airplane'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <CoinCatchGame v-if="activeGame?.game_key === 'coincatch'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <FruitSliceGame v-if="activeGame?.game_key === 'fruitslice'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
-    <PianoTilesGame v-if="activeGame?.game_key === 'pianotiles'" v-model="gameVisible" v-bind="activeGameBindingParams" @score="onGameScore" />
   </div>
 </template>
 
@@ -309,30 +273,6 @@ import { getGames } from '../../api/games'
 import { buildAssetUrl } from '../../api/runtime'
 import CardPreview from '../../components/battle/CardPreview.vue'
 import CardPickerDialog from '../../components/battle/CardPickerDialog.vue'
-import ArcheryGame from '../../components/games/ArcheryGame.vue'
-import SoccerGame from '../../components/games/SoccerGame.vue'
-import TennisGame from '../../components/games/TennisGame.vue'
-import GolfGame from '../../components/games/GolfGame.vue'
-import SwimmingGame from '../../components/games/SwimmingGame.vue'
-import RunningGame from '../../components/games/RunningGame.vue'
-import GymnasticsGame from '../../components/games/GymnasticsGame.vue'
-import BoxingGame from '../../components/games/BoxingGame.vue'
-import EquestrianGame from '../../components/games/EquestrianGame.vue'
-import RacingGame from '../../components/games/RacingGame.vue'
-import ChoppingGame from '../../components/games/ChoppingGame.vue'
-import GuitarGame from '../../components/games/GuitarGame.vue'
-import NosehairGame from '../../components/games/NosehairGame.vue'
-import VolleyballGame from '../../components/games/VolleyballGame.vue'
-import JumpropeGame from '../../components/games/JumpropeGame.vue'
-import SnakeGame from '../../components/games/SnakeGame.vue'
-import TetrisGame from '../../components/games/TetrisGame.vue'
-import BreakoutGame from '../../components/games/BreakoutGame.vue'
-import PinballGame from '../../components/games/PinballGame.vue'
-import TankGame from '../../components/games/TankGame.vue'
-import AirplaneGame from '../../components/games/AirplaneGame.vue'
-import CoinCatchGame from '../../components/games/CoinCatchGame.vue'
-import FruitSliceGame from '../../components/games/FruitSliceGame.vue'
-import PianoTilesGame from '../../components/games/PianoTilesGame.vue'
 
 // ── GAME DEFS (公式定义，与 GameMakerView 保持一致) ──────────────────────────
 const GAME_DEFS = {
@@ -367,6 +307,7 @@ const rarityRankMap = Object.fromEntries(RARITY_SORT_ORDER.map((item, index) => 
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 const phase = ref('setup') // setup | battle | result
+const battleDialogVisible = ref(false)
 const cpuCards = ref([null, null, null, null])
 const playerCards = ref([null, null, null, null])
 const sharedDesign = ref(null)
@@ -382,11 +323,8 @@ const cpuHp = ref([0, 0, 0, 0])
 const playerHp = ref([0, 0, 0, 0])
 const roundNum = ref(1)
 const currentTurn = ref('player') // player | cpu
-const currentSlot = ref(0)
+const currentSlot = ref(-1)
 const activeBoardSlot = ref(-1)
-const activeGame = ref(null)
-const activeGameParams = ref({})
-const gameVisible = ref(false)
 const cpuPlaying = ref(false)
 const battleLog = ref([])
 const logRef = ref(null)
@@ -415,8 +353,7 @@ const batchPickerVisible = ref(false)
 const batchTarget = ref('cpu')
 
 const turnLabel = computed(() => currentTurn.value === 'player' ? '玩家进攻' : '电脑进攻')
-const slotResultMap = computed(() => Object.fromEntries(phaseResults.value.map(item => [item.boardSlot, item.score])))
-const activeGameBindingParams = computed(() => camelizeKeys(activeGameParams.value))
+const simulationStatusText = computed(() => currentTurn.value === 'cpu' ? '电脑正在自动出战，请稍候…' : '玩家回合自动结算中…')
 
 const resultText = computed(() => {
   const cpuAlive = cpuHp.value.some(h => h > 0)
@@ -475,14 +412,21 @@ function sortCards(list, sortState) {
   })
 }
 
-function snakeToCamel(value) {
-  return String(value).replace(/_([a-z])/g, (_, char) => char.toUpperCase())
-}
-
-function camelizeKeys(payload = {}) {
-  return Object.fromEntries(
-    Object.entries(payload).map(([key, value]) => [snakeToCamel(key), value])
-  )
+function battleCardWrapStyle(side, index) {
+  const isActive = cpuPlaying.value && currentTurn.value === side && currentSlot.value === index
+  const activeColor = side === 'cpu' ? '#e6a23c' : '#67c23a'
+  const activeBg = side === 'cpu' ? 'rgba(230,162,60,0.12)' : 'rgba(103,194,58,0.12)'
+  return {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px',
+    borderRadius: '14px',
+    background: isActive ? activeBg : 'rgba(255,255,255,0.72)',
+    border: `1px solid ${isActive ? activeColor : '#ebeef5'}`,
+    transition: 'all 0.2s ease',
+  }
 }
 
 function getSideCards(side) {
@@ -640,25 +584,47 @@ function computeParams(gameDef, myCard, enemyCard) {
 
 // ── BATTLE SETUP ──────────────────────────────────────────────────────────────
 function startBattle() {
+  battleDialogVisible.value = true
   battleCpuCards.value = [...cpuCards.value]
   battlePlayerCards.value = [...playerCards.value]
   cpuHp.value = battleCpuCards.value.map(c => c ? (c.stamina_value || 100) : 0)
   playerHp.value = battlePlayerCards.value.map(c => c ? (c.stamina_value || 100) : 0)
   battleLog.value = []
   roundNum.value = 1
+  currentTurn.value = 'player'
+  currentSlot.value = -1
   activeBoardSlot.value = -1
-  activeGame.value = null
+  attackPhase.value = null
+  phaseResults.value = []
+  cpuPlaying.value = false
   phase.value = 'battle'
   addLog('=== 对战开始 ===', 'info')
+  addLog('当前测试模式已关闭小游戏加载，双方回合自动模拟得分。', 'info')
   rollDice()
 }
 
 function resetBattle() {
   phase.value = 'setup'
+  battleDialogVisible.value = false
   battleLog.value = []
   dicePhase.value = false
-  activeGame.value = null
+  diceRolling.value = false
+  currentTurn.value = 'player'
+  currentSlot.value = -1
   activeBoardSlot.value = -1
+  attackPhase.value = null
+  phaseResults.value = []
+  cpuPlaying.value = false
+  cpuDiceRoll.value = 0
+  playerDiceRoll.value = 0
+}
+
+function restartBattle() {
+  startBattle()
+}
+
+function onBattleDialogClosed() {
+  resetBattle()
 }
 
 // ── DICE ──────────────────────────────────────────────────────────────────────
@@ -771,16 +737,11 @@ function startAttackPhase(side) {
 
   const sideLabel = side === 'player' ? '玩家' : '电脑'
   addLog(`【${sideLabel}进攻】牌位 ${slots.map(s => s.boardSlot + 1).join('、')} 同时出战`, 'round')
-
-  if (side === 'cpu') {
-    // 电脑：并行模拟所有slot，结果统一按牌位顺序显示
-    simulateAllCpuSlots(slots)
-  } else {
-    activeBoardSlot.value = -1
-  }
+  addLog(`${sideLabel}回合自动结算中，本轮不加载小游戏。`, 'info')
+  simulateAllSlots(side, slots)
 }
 
-function simulateCpuScore(slot) {
+function simulateSlotScore(slot) {
   const attack = slot.attackCard || {}
   const defend = getCardByResolvedSlot(slot.defSide, slot.boardSlot) || slot.defCard || {}
   const attackPower =
@@ -800,58 +761,31 @@ function simulateCpuScore(slot) {
   return Math.max(0, Math.min(5, Math.round(rawScore)))
 }
 
-// 电脑：并行模拟所有slot，按顺序收集结果后统一结算
-async function simulateAllCpuSlots(slots) {
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function simulateAllSlots(side, slots) {
   cpuPlaying.value = true
-  const results = await Promise.all(
-    slots.map(async (slot) => {
-      await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500))
-      return { ...slot, score: simulateCpuScore(slot) }
-    })
-  )
-  results.sort((left, right) => left.boardSlot - right.boardSlot)
-  for (const item of results) {
-    addLog(`${slotActorLabel('cpu', item.boardSlot, item.attackSlot, item.attackCard)} · ${item.gameDef.name} → 得分 ${item.score}/5`, 'cpu')
+  const logType = side === 'cpu' ? 'cpu' : 'action'
+  const results = []
+
+  for (const slot of [...slots].sort((left, right) => left.boardSlot - right.boardSlot)) {
+    currentSlot.value = slot.boardSlot
+    activeBoardSlot.value = slot.boardSlot
+    await wait(280 + Math.random() * 180)
+    const score = simulateSlotScore(slot)
+    const result = { ...slot, score }
+    results.push(result)
+    phaseResults.value = [...results]
+    addLog(`${slotActorLabel(side, slot.boardSlot, slot.attackSlot, slot.attackCard)} · ${slot.gameDef.name}（自动模拟） → 得分 ${score}/5`, logType)
+    await wait(180)
   }
+
   cpuPlaying.value = false
-  onAttackPhaseDone('cpu', results)
-}
-
-async function openPlayerGame(boardSlot) {
-  if (!attackPhase.value || attackPhase.value.side !== 'player' || gameVisible.value) return
-  if (slotResultMap.value[boardSlot] !== undefined) return
-
-  const slot = attackPhase.value.slots.find(item => item.boardSlot === boardSlot)
-  if (!slot) return
-
-  currentSlot.value = boardSlot
-  activeBoardSlot.value = boardSlot
-  gameVisible.value = false
-  activeGame.value = { game_key: slot.gameKey, name: slot.gameDef.name }
-  activeGameParams.value = slot.params
-  addLog(`${slotActorLabel('player', slot.boardSlot, slot.attackSlot, slot.attackCard)} vs ${slotActorLabel(slot.defSide, slot.boardSlot, resolveRepresentativeSlot(slot.defSide, slot.boardSlot), getCardByResolvedSlot(slot.defSide, slot.boardSlot))} · ${slot.gameDef.name}`, 'action')
-  await nextTick()
-  gameVisible.value = true
-}
-
-function onGameScore(score) {
-  gameVisible.value = false
-  if (!attackPhase.value || activeBoardSlot.value < 0) return
-
-  const slot = attackPhase.value.slots.find(item => item.boardSlot === activeBoardSlot.value)
-  if (!slot) return
-
-  addLog(`${slotActorLabel('player', slot.boardSlot, slot.attackSlot, slot.attackCard)} · ${slot.gameDef.name} → 得分 ${score}/5`, 'action')
-  phaseResults.value = [
-    ...phaseResults.value.filter(item => item.boardSlot !== slot.boardSlot),
-    { ...slot, score },
-  ].sort((left, right) => left.boardSlot - right.boardSlot)
-  activeGame.value = null
+  currentSlot.value = -1
   activeBoardSlot.value = -1
-
-  if (phaseResults.value.length === attackPhase.value.slots.length) {
-    onAttackPhaseDone('player', phaseResults.value)
-  }
+  onAttackPhaseDone(side, results)
 }
 
 // 统一结算一个攻击阶段的所有结果
@@ -884,7 +818,9 @@ function onAttackPhaseDone(side, results) {
   }
 
   attackPhase.value = null
-  activeGame.value = null
+  phaseResults.value = []
+  cpuPlaying.value = false
+  currentSlot.value = -1
   activeBoardSlot.value = -1
 
   // 检查胜负
@@ -913,7 +849,10 @@ function onAttackPhaseDone(side, results) {
 function endBattle() {
   phase.value = 'result'
   attackPhase.value = null
-  activeGame.value = null
+  phaseResults.value = []
+  cpuPlaying.value = false
+  currentSlot.value = -1
+  activeBoardSlot.value = -1
   const cpuAlive = cpuHp.value.some(h => h > 0)
   const playerAlive = playerHp.value.some(h => h > 0)
   if (!cpuAlive && !playerAlive) addLog('=== 平局！ ===', 'result')

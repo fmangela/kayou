@@ -11,13 +11,13 @@
     <!-- Intro phase -->
     <div v-if="phase === 'intro'" style="text-align:center;padding:24px 0">
       <div style="font-size:22px;font-weight:bold;margin-bottom:12px">网球</div>
-      <div style="font-size:15px;color:#555;margin-bottom:24px">盯准来球，按空格键挥拍回击！</div>
+      <div style="font-size:15px;color:#555;margin-bottom:24px">用左右键移动站位，按空格键挥拍回击！</div>
       <div v-if="introCountdown > 3" style="font-size:14px;color:#aaa">即将开始…</div>
       <div v-else style="font-size:56px;font-weight:bold;color:#409eff;line-height:1">{{ introCountdown }}</div>
     </div>
 
     <!-- Playing phase -->
-    <div v-else-if="phase === 'playing'" style="outline:none" tabindex="0" ref="gameArea" @keydown.space.prevent="swing">
+    <div v-else-if="phase === 'playing'" style="outline:none" tabindex="0" ref="gameArea" @click="focusGameArea">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <span>剩余来球：{{ ballsLeft }} / 5</span>
         <span>回击：{{ hits }}</span>
@@ -40,8 +40,11 @@
         <!-- Net post right -->
         <div style="position:absolute;top:calc(50% - 12px);right:0;width:4px;height:24px;background:white"></div>
 
-        <!-- Opponent (top) -->
-        <div style="position:absolute;top:18px;left:50%;transform:translateX(-50%);font-size:24px">🎾</div>
+        <!-- Opponent -->
+        <div class="tennis-player tennis-player--opponent" style="left:50%;top:18px;transform:translateX(-50%)">
+          <div class="tennis-player__body tennis-player__body--opponent"></div>
+          <div class="tennis-racket tennis-racket--opponent"></div>
+        </div>
 
         <!-- Ball in flight -->
         <div
@@ -69,18 +72,19 @@
           }"
         >{{ r.hit ? '✅' : '❌' }}</div>
 
-        <!-- Player racket -->
+        <!-- Player -->
         <div
+          class="tennis-player tennis-player--self"
           :style="{
             position: 'absolute',
-            bottom: '18px',
+            bottom: '24px',
             left: racketX + 'px',
-            fontSize: '28px',
             transform: 'translateX(-50%)',
-            transition: 'left 0.08s linear',
           }"
-        >🎾</div>
-        <!-- Racket label -->
+        >
+          <div class="tennis-player__body"></div>
+          <div class="tennis-racket tennis-racket--self"></div>
+        </div>
         <div
           :style="{
             position: 'absolute',
@@ -94,6 +98,8 @@
       </div>
 
       <div style="text-align:center;margin-top:12px;color:#888;font-size:13px">
+        按 <kbd style="background:#f0f0f0;padding:2px 6px;border-radius:4px;border:1px solid #ccc">←</kbd>
+        <kbd style="background:#f0f0f0;padding:2px 6px;border-radius:4px;border:1px solid #ccc;margin-left:4px">→</kbd> 调整站位，
         按 <kbd style="background:#f0f0f0;padding:2px 6px;border-radius:4px;border:1px solid #ccc">空格键</kbd> 挥拍回击
       </div>
     </div>
@@ -121,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -140,6 +146,11 @@ const CANVAS_H = 300
 const BALL_START_Y = 30
 const BALL_END_Y = 260   // landing zone y (near player baseline)
 const RACKET_Y = 260     // player racket y
+const RACKET_MIN_X = 44
+const RACKET_MAX_X = CANVAS_W - 44
+const RACKET_MOVE_SPEED = 300
+const RACKET_HIT_RANGE_X = 50
+const RACKET_HIT_RANGE_Y = 118
 
 const phase = ref('intro')
 const introCountdown = ref(6)
@@ -156,6 +167,8 @@ let targetX = CANVAS_W / 2
 
 // Racket state
 const racketX = ref(CANVAS_W / 2)
+const movingLeft = ref(false)
+const movingRight = ref(false)
 
 // Per-ball state
 let ballInFlight = false
@@ -166,6 +179,8 @@ let swingUsed = false
 let introTimer = null
 let gameTimer = null
 let animRaf = null
+let controlRaf = null
+let lastControlTime = 0
 
 const score = computed(() => hits.value)
 const scoreTagType = computed(() => {
@@ -190,6 +205,9 @@ function startGame() {
   timeLeft.value = props.timeLimit
   ballVisible.value = false
   ballInFlight = false
+  racketX.value = CANVAS_W / 2
+  movingLeft.value = false
+  movingRight.value = false
 
   let count = 6
   introTimer = setInterval(() => {
@@ -202,7 +220,8 @@ function startGame() {
 function beginPlaying() {
   phase.value = 'playing'
   startGameTimer()
-  nextTick(() => { gameArea.value?.focus(); launchBall() })
+  startControlLoop()
+  nextTick(() => { focusGameArea(); launchBall() })
 }
 
 function launchBall() {
@@ -218,9 +237,6 @@ function launchBall() {
   ballInFlight = true
   swingUsed = false
   ballStartTime = performance.now()
-
-  // Move racket toward target
-  racketX.value = targetX
 
   startBallAnim()
 }
@@ -256,8 +272,9 @@ function swing() {
   ballVisible.value = false
   ballInFlight = false
 
-  // Hit if racket is within ±35px of ball's current x and ball is in lower half
-  const hit = Math.abs(racketX.value - ballX.value) <= 35 && ballY.value >= CANVAS_H / 2
+  const hit =
+    Math.abs(racketX.value - ballX.value) <= RACKET_HIT_RANGE_X &&
+    Math.abs(RACKET_Y - ballY.value) <= RACKET_HIT_RANGE_Y
   recordResult(hit, ballX.value, ballY.value)
   if (hit) hits.value++
   nextBall()
@@ -265,6 +282,65 @@ function swing() {
 
 function recordResult(hit, x, y) {
   results.value.push({ hit, x, y })
+}
+
+function startControlLoop() {
+  cancelAnimationFrame(controlRaf)
+  lastControlTime = performance.now()
+
+  function loop(now) {
+    if (phase.value !== 'playing') return
+    const dt = Math.min(0.03, (now - lastControlTime) / 1000 || 0)
+    lastControlTime = now
+    updateRacketPosition(dt)
+    controlRaf = requestAnimationFrame(loop)
+  }
+
+  controlRaf = requestAnimationFrame(loop)
+}
+
+function updateRacketPosition(dt) {
+  const direction = (movingRight.value ? 1 : 0) - (movingLeft.value ? 1 : 0)
+  if (!direction) return
+  racketX.value = clamp(racketX.value + direction * RACKET_MOVE_SPEED * dt, RACKET_MIN_X, RACKET_MAX_X)
+}
+
+function handleKeydown(event) {
+  if (!visible.value || phase.value !== 'playing') return
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    movingLeft.value = true
+    focusGameArea()
+    return
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    movingRight.value = true
+    focusGameArea()
+    return
+  }
+  if (event.code === 'Space' || event.key === ' ') {
+    event.preventDefault()
+    focusGameArea()
+    swing()
+  }
+}
+
+function handleKeyup(event) {
+  if (!visible.value || phase.value !== 'playing') return
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    movingLeft.value = false
+    return
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    movingRight.value = false
+  }
+}
+
+function focusGameArea() {
+  gameArea.value?.focus()
 }
 
 function nextBall() {
@@ -286,8 +362,11 @@ function startGameTimer() {
 function endGame() {
   clearInterval(gameTimer)
   cancelAnimationFrame(animRaf)
+  cancelAnimationFrame(controlRaf)
   ballInFlight = false
   ballVisible.value = false
+  movingLeft.value = false
+  movingRight.value = false
   phase.value = 'result'
   emit('score', score.value)
 }
@@ -298,8 +377,92 @@ function clearAll() {
   clearInterval(introTimer)
   clearInterval(gameTimer)
   cancelAnimationFrame(animRaf)
+  cancelAnimationFrame(controlRaf)
   ballInFlight = false
+  movingLeft.value = false
+  movingRight.value = false
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keyup', handleKeyup)
+})
+
 onBeforeUnmount(clearAll)
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keyup', handleKeyup)
+})
 </script>
+
+<style scoped>
+.tennis-player {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+}
+
+.tennis-player__body {
+  position: absolute;
+  inset: 7px auto auto 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff4da 0%, #ffd38b 100%);
+  box-shadow: 0 8px 0 -4px #2f4550, 0 18px 0 -8px rgba(255, 255, 255, 0.45);
+}
+
+.tennis-player__body--opponent {
+  background: linear-gradient(180deg, #fce7b3 0%, #f6c35b 100%);
+  box-shadow: 0 8px 0 -4px #394f62, 0 18px 0 -8px rgba(255, 255, 255, 0.35);
+}
+
+.tennis-racket {
+  position: absolute;
+  width: 22px;
+  height: 32px;
+}
+
+.tennis-racket::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 20px;
+  border: 3px solid #f7fbff;
+  border-radius: 48% 48% 45% 45%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.4) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.25) 0 1px, transparent 1px 5px),
+    rgba(90, 167, 223, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.tennis-racket::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  width: 6px;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #9b6135 0%, #6f3f1d 100%);
+}
+
+.tennis-racket--self {
+  right: -4px;
+  top: -2px;
+  transform: rotate(18deg);
+}
+
+.tennis-racket--opponent {
+  left: -4px;
+  top: 2px;
+  transform: rotate(198deg);
+}
+</style>

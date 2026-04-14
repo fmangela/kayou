@@ -125,6 +125,11 @@ const obstacles = ref([])
 const GROUND_Y = 80
 const JUMP_PEAK = 160
 const HORSE_X = 80
+const MAX_CHARGE_MS = 550
+const HORSE_HITBOX_LEFT = HORSE_X - 6
+const HORSE_HITBOX_RIGHT = HORSE_X + 18
+const HORSE_CLEARANCE_OFFSET = 8
+const MAX_JUMP_WINDOW_GRACE = 10
 const totalObstacles = computed(() => Math.max(5, Math.min(15, props.obstacleCount)))
 
 let introTimer = null
@@ -187,6 +192,21 @@ function beginPlaying() {
   rafId = requestAnimationFrame(gameLoop)
 }
 
+function getChargeLevel(now = performance.now()) {
+  return Math.min(1, Math.max(0, (now - chargeStart) / MAX_CHARGE_MS))
+}
+
+function isSpaceKey(e) {
+  return e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar'
+}
+
+function markObstacleCleared(obstacle) {
+  if (obstacle.cleared) return
+  obstacle.cleared = true
+  clearedCount.value++
+  showOverlay('越过！', '#67c23a')
+}
+
 function gameLoop(now) {
   if (phase.value !== 'playing') return
   const dt = (now - lastFrame) / 1000
@@ -194,7 +214,7 @@ function gameLoop(now) {
 
   // Spawn obstacles
   if (spawnedCount < totalObstacles.value && now >= nextObstacleTime) {
-    obstacles.value.push({ id: obsIdCounter++, x: 430 })
+    obstacles.value.push({ id: obsIdCounter++, x: 430, cleared: false })
     spawnedCount++
     nextObstacleTime = now + props.obstacleInterval * 1000
   }
@@ -203,47 +223,8 @@ function gameLoop(now) {
   const speed = 120  // px/sec
   obstacles.value = obstacles.value.map(o => ({ ...o, x: o.x - speed * dt }))
 
-  // Check collisions and clears
-  const horseLeft = HORSE_X - 10
-  const horseRight = HORSE_X + 30
-  const horseBottom = horseY.value
-  const horseTop = horseY.value + 40
-
-  obstacles.value = obstacles.value.filter(o => {
-    const obsLeft = o.x
-    const obsRight = o.x + 28
-    const obsTop = GROUND_Y + 28
-
-    if (obsRight < horseLeft) {
-      // Passed horse
-      clearedCount.value++
-      showOverlay('越过！', '#67c23a')
-      return false
-    }
-    if (obsLeft < horseRight && obsRight > horseLeft) {
-      // Overlap horizontally - check vertical
-      if (horseBottom < obsTop) {
-        // Horse is above obstacle - cleared
-        return true
-      } else {
-        // Collision
-        hitCount.value++
-        showOverlay('撞到了！', '#f56c6c')
-        if (hitCount.value >= 3) {
-          endGame()
-          return false
-        }
-        return false
-      }
-    }
-    if (o.x < -40) return false
-    return true
-  })
-
-  // Horse restlessness
+  // Update jump position before collision checks so a just-released jump counts immediately.
   restlessOffset = Math.sin(now / 300) * props.horseRestless * 3
-
-  // Jump arc
   if (isJumping) {
     const elapsed = (now - jumpStart) / 1000
     const t = elapsed / jumpDuration
@@ -261,8 +242,47 @@ function gameLoop(now) {
 
   // Charge level
   if (isCharging.value) {
-    chargeLevel.value = Math.min(1, (now - chargeStart) / 800)
+    chargeLevel.value = getChargeLevel(now)
+    statusText.value = '蓄力中…'
   }
+
+  // Check collisions and clears
+  const horseLeft = HORSE_HITBOX_LEFT
+  const horseRight = HORSE_HITBOX_RIGHT
+  const jumpWindowGrace = Math.min(MAX_JUMP_WINDOW_GRACE, Math.max(0, Number(props.jumpWindow) || 0) * 12)
+  const horseBottom = horseY.value + HORSE_CLEARANCE_OFFSET + jumpWindowGrace
+
+  obstacles.value = obstacles.value.filter(o => {
+    const obsLeft = o.x
+    const obsRight = o.x + 28
+    const obsTop = GROUND_Y + 28
+
+    if (o.x < -40) return false
+    if (o.cleared) return true
+
+    if (obsRight < horseLeft) {
+      // Passed horse
+      markObstacleCleared(o)
+      return true
+    }
+    if (obsLeft < horseRight && obsRight > horseLeft) {
+      // Overlap horizontally - check vertical
+      if (horseBottom >= obsTop) {
+        markObstacleCleared(o)
+        return true
+      } else {
+        // Collision
+        hitCount.value++
+        showOverlay('撞到了！', '#f56c6c')
+        if (hitCount.value >= 3) {
+          endGame()
+          return false
+        }
+        return false
+      }
+    }
+    return true
+  })
 
   // Check if all obstacles done and none left
   if (spawnedCount >= totalObstacles.value && obstacles.value.length === 0) {
@@ -275,7 +295,7 @@ function gameLoop(now) {
     const dist = o.x - HORSE_X
     return dist > 0 && dist < (best?.dist ?? Infinity) ? { dist, obs: o } : best
   }, null)
-  if (nearest && nearest.dist < 100 && !isJumping) {
+  if (nearest && nearest.dist < 100 && !isJumping && !isCharging.value) {
     statusText.value = '准备！'
   }
 
@@ -284,26 +304,27 @@ function gameLoop(now) {
 
 function onKey(e) {
   if (phase.value !== 'playing') return
-  if (e.key === ' ') {
+  if (isSpaceKey(e)) {
     e.preventDefault()
     if (!isCharging.value && !isJumping) {
       isCharging.value = true
       chargeStart = performance.now()
+      chargeLevel.value = 0
     }
   }
 }
 
 function onKeyUp(e) {
   if (phase.value !== 'playing') return
-  if (e.key === ' ' && isCharging.value) {
+  if (isSpaceKey(e) && isCharging.value) {
     e.preventDefault()
     isCharging.value = false
-    const charge = chargeLevel.value
+    const charge = Math.max(0.15, getChargeLevel(performance.now()))
     chargeLevel.value = 0
     if (!isJumping) {
       isJumping = true
       jumpStart = performance.now()
-      jumpDuration = 0.5 + charge * 0.4
+      jumpDuration = 0.56 + charge * 0.28
       statusText.value = '起跳！'
     }
   }
