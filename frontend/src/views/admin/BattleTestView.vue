@@ -21,7 +21,7 @@
               :attribute="cpuCards[i]"
               :design="sharedDesign"
               :webp-path="cpuCards[i].webp_paths && cpuCards[i].webp_paths[0]"
-              :width="160"
+              :width="188"
               :is-captain="i === 0"
             />
             <div v-else :style="emptySlotStyle">
@@ -56,7 +56,7 @@
               :attribute="playerCards[i]"
               :design="sharedDesign"
               :webp-path="playerCards[i].webp_paths && playerCards[i].webp_paths[0]"
-              :width="160"
+              :width="188"
               :is-captain="i === 0"
             />
             <div v-else :style="emptySlotStyle">
@@ -80,14 +80,14 @@
       <span style="margin-left:12px;font-size:12px;color:#999">需要双方各选满4张卡牌</span>
     </el-card>
 
-    <el-dialog
+     <el-dialog
       v-model="battleDialogVisible"
       :title="phase === 'result' ? '对战结果' : '对战测试'"
       width="1320px"
       top="4vh"
       :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :show-close="phase === 'result'"
+      :close-on-press-escape="true"
+      :show-close="true"
       @closed="onBattleDialogClosed"
     >
       <div style="max-height:78vh;overflow-y:auto;padding-right:4px">
@@ -121,11 +121,10 @@
                   <div :style="diceStyle(playerDiceRoll, diceRolling)">{{ diceRolling ? diceAnim : (playerDiceRoll || '?') }}</div>
                 </div>
               </div>
-              <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:16px">
-                {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
-              </div>
-              <el-button v-if="!diceRolling" type="primary" @click="afterDice">继续</el-button>
-            </div>
+               <div v-if="!diceRolling && cpuDiceRoll && playerDiceRoll" style="font-size:15px;font-weight:bold;color:#409eff;margin-bottom:16px">
+                 {{ cpuDiceRoll === playerDiceRoll ? '平局，重新掷骰！' : (cpuDiceRoll > playerDiceRoll ? '电脑先手' : '玩家先手') }}
+               </div>
+             </div>
 
             <div v-else>
               <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">电脑</div>
@@ -140,7 +139,7 @@
                       :attribute="card"
                       :design="sharedDesign"
                       :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="180"
+                      :width="375"
                       :is-captain="i === 0"
                       :show-hp="true"
                       :current-hp="cpuHp[i]"
@@ -166,7 +165,7 @@
                       :attribute="card"
                       :design="sharedDesign"
                       :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="180"
+                      :width="375"
                       :is-captain="i === 0"
                       :show-hp="true"
                       :current-hp="playerHp[i]"
@@ -376,8 +375,8 @@ const resultTag = computed(() => {
 })
 
 const emptySlotStyle = {
-  width: '160px',
-  height: '240px',
+  width: '188px',
+  height: '282px',
   border: '2px dashed #ddd',
   borderRadius: '12px',
   display: 'flex',
@@ -649,6 +648,10 @@ function rollDice() {
       cpuDiceRoll.value = Math.floor(Math.random() * 20) + 1
       playerDiceRoll.value = Math.floor(Math.random() * 20) + 1
       addLog(`掷骰：电脑 ${cpuDiceRoll.value} vs 玩家 ${playerDiceRoll.value}`, 'info')
+      // 等待 2 秒后自动继续
+      setTimeout(() => {
+        afterDice()
+      }, 2000)
     }
   }, 80)
 }
@@ -679,13 +682,44 @@ const attackPhase = ref(null) // { side, slots: [{ boardSlot, attackSlot, attack
 const phaseResults = ref([])   // 收集到的得分结果
 const roundFirstSide = ref('player')
 
+function findMatchingDefSlot(side, attackBoardSlot) {
+  const hpList = getSideHp(side)
+  // 需求：永远对应相同牌位序号，如果对方对应序号阵亡，则：
+  // 从这个序号往后找第一个存活，如果找不到，从这个序号往前找最后一个存活
+  // 这样实现 1对1, 2对2, 3对3, 4对4，阵亡后自动越级
+  
+  // 先尝试同序号
+  if (hpList[attackBoardSlot] > 0) {
+    return attackBoardSlot
+  }
+  // 往后找第一个存活
+  for (let i = attackBoardSlot + 1; i < 4; i++) {
+    if (hpList[i] > 0) {
+      return i
+    }
+  }
+  // 往前找最后一个存活
+  for (let i = attackBoardSlot - 1; i >= 0; i--) {
+    if (hpList[i] > 0) {
+      return i
+    }
+  }
+  // 没找到
+  return -1
+}
+
 function buildAttackSlots(side) {
   const slots = []
+  const attackHp = getSideHp(side)
+  const defSide = side === 'player' ? 'cpu' : 'player'
+  
+  // 进攻方按牌位顺序 0,1,2,3，每个存活的进攻牌找对应序号的防守牌
   for (let boardSlot = 0; boardSlot < 4; boardSlot += 1) {
+    if (attackHp[boardSlot] <= 0) continue // 进攻方自己阵亡了跳过
+    
     const attackSlot = resolveRepresentativeSlot(side, boardSlot)
-    const defSide = side === 'player' ? 'cpu' : 'player'
-    const defSlot = resolveRepresentativeSlot(defSide, boardSlot)
-
+    const defSlot = findMatchingDefSlot(defSide, boardSlot)
+    
     if (attackSlot < 0 || defSlot < 0) continue
 
     const attackCard = getSideCards(side)[attackSlot]

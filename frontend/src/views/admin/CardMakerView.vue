@@ -151,17 +151,23 @@
             :style="previewFixedStyle"
           >
             <el-card v-loading="loadingDetail">
-              <template #header>
-                <div style="display:flex;align-items:center;justify-content:space-between">
-                  <span style="font-weight:bold">成品预览</span>
-                  <el-tag size="small" type="info">固定预览</el-tag>
-                </div>
-              </template>
+               <template #header>
+                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                   <span style="font-weight:bold">成品预览</span>
+                   <div style="display:flex;align-items:center;gap:8px">
+                     <el-radio-group v-model="previewScale" size="small">
+                       <el-radio-button :value="0.25">1/4</el-radio-button>
+                       <el-radio-button :value="0.48">1/2</el-radio-button>
+                     </el-radio-group>
+                     <el-button size="small" type="primary" @click="openOriginalPreview">原卡预览</el-button>
+                   </div>
+                 </div>
+               </template>
 
-              <div
-                v-if="detail.attribute && selectedWebpPath"
-                :style="previewFrameStyle"
-              >
+               <div
+                 v-if="detail.attribute && selectedWebpPath"
+                 :style="previewFrameStyle"
+               >
                 <img :src="buildAssetUrl(selectedWebpPath)" alt="卡牌底图" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />
                 <div :style="effectOverlayStyle" />
                 <div
@@ -179,9 +185,31 @@
           </div>
         </div>
       </el-col>
-    </el-row>
-  </div>
-</template>
+     </el-row>
+
+     <!-- 原卡预览弹窗 -->
+     <el-dialog
+       v-model="originalPreviewVisible"
+       title="原卡预览 (750×1125)"
+       width="800px"
+       :close-on-click-modal="false"
+       :close-on-press-escape="true"
+     >
+       <div v-if="detail.attribute && selectedWebpPath" :style="originalFrameStyle">
+         <img :src="buildAssetUrl(selectedWebpPath)" alt="卡牌原卡" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />
+         <div :style="effectOverlayStyle" />
+         <div
+           v-for="field in previewFields"
+           :key="field.key"
+           :style="getOriginalTextStyle(field.key)"
+         >
+           {{ field.text }}
+         </div>
+       </div>
+       <el-empty v-else description="当前人物还没有 WebP 图片" />
+     </el-dialog>
+   </div>
+ </template>
 
 <script setup>
 import { computed, reactive, ref, watch, onMounted, onBeforeUnmount } from 'vue'
@@ -275,9 +303,15 @@ const dragState = reactive({
 
 const CARD_WIDTH = 750
 const CARD_HEIGHT = 1125
-const PREVIEW_DISPLAY_WIDTH = 360
-const PREVIEW_DISPLAY_HEIGHT = 540
-const PREVIEW_SCALE = PREVIEW_DISPLAY_WIDTH / CARD_WIDTH
+
+// 预览档次：1/4, 1/2, 原图（弹窗）
+const previewScale = ref(0.48) // 默认 1/2
+const originalPreviewVisible = ref(false)
+
+const currentPreviewScale = computed(() => previewScale.value)
+const PREVIEW_DISPLAY_WIDTH = computed(() => Math.round(CARD_WIDTH * previewScale.value))
+const PREVIEW_DISPLAY_HEIGHT = computed(() => Math.round(CARD_HEIGHT * previewScale.value))
+const PREVIEW_SCALE = computed(() => previewScale.value)
 const LAYOUT_META = Object.freeze({
   unit: 'relative',
   baseWidth: CARD_WIDTH,
@@ -399,18 +433,21 @@ const previewFields = computed(() => {
     .filter(field => field.text !== '' && field.text !== null)
 })
 
-const previewFrameStyle = computed(() => ({
-  width: PREVIEW_DISPLAY_WIDTH + 'px',
-  aspectRatio: '2 / 3',
-  margin: '0 auto',
-  position: 'relative',
-  overflow: 'hidden',
-  borderRadius: Math.round(18 * PREVIEW_SCALE) + 'px',
-  background: '#1f1f1f',
-  boxShadow: enabledEffects.value.includes('emboss')
-    ? `0 ${Math.round(22 * PREVIEW_SCALE)}px ${Math.round(48 * PREVIEW_SCALE)}px rgba(0,0,0,0.32), inset 0 0 0 ${Math.round(2 * PREVIEW_SCALE)}px rgba(255,255,255,0.08)`
-    : `0 ${Math.round(18 * PREVIEW_SCALE)}px ${Math.round(40 * PREVIEW_SCALE)}px rgba(0,0,0,0.22)`,
-}))
+const previewFrameStyle = computed(() => {
+  const s = PREVIEW_SCALE.value
+  return {
+    width: PREVIEW_DISPLAY_WIDTH.value + 'px',
+    aspectRatio: '2 / 3',
+    margin: '0 auto',
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: Math.round(18 * s) + 'px',
+    background: '#1f1f1f',
+    boxShadow: enabledEffects.value.includes('emboss')
+      ? `0 ${Math.round(22 * s)}px ${Math.round(48 * s)}px rgba(0,0,0,0.32), inset 0 0 0 ${Math.round(2 * s)}px rgba(255,255,255,0.08)`
+      : `0 ${Math.round(18 * s)}px ${Math.round(40 * s)}px rgba(0,0,0,0.22)`,
+  }
+})
 
 const previewFixedStyle = computed(() => {
   return {
@@ -626,6 +663,60 @@ watch(visibleFields, (nextFields) => {
     selectedFieldKey.value = ''
   }
 })
+
+function openOriginalPreview() {
+  originalPreviewVisible.value = true
+}
+
+const originalFrameStyle = computed(() => ({
+  width: CARD_WIDTH + 'px',
+  height: CARD_HEIGHT + 'px',
+  position: 'relative',
+  overflow: 'hidden',
+  borderRadius: '18px',
+  background: '#1f1f1f',
+  margin: '0 auto',
+  boxShadow: enabledEffects.value.includes('emboss')
+    ? '0 22px 48px rgba(0,0,0,0.32), inset 0 0 0 2px rgba(255,255,255,0.08)'
+    : '0 18px 40px rgba(0,0,0,0.22)',
+}))
+
+function getOriginalTextStyle(key) {
+  const setting = fieldSettings[key] || defaultLayouts[key]
+  const maxLines = Math.max(1, Math.round(toFiniteNumber(setting.maxLines, 1)))
+  const isSingleLine = maxLines === 1
+  const s = 1 // 原图就是 1:1
+  return {
+    position: 'absolute',
+    left: setting.x + 'px',
+    top: setting.y + 'px',
+    width: setting.width + 'px',
+    fontSize: setting.fontSize + 'px',
+    fontWeight: setting.fontWeight,
+    color: setting.color,
+    textAlign: setting.textAlign,
+    lineHeight: 1.35,
+    padding: Math.round(4 * s) + 'px ' + Math.round(6 * s) + 'px',
+    borderRadius: Math.round(6 * s) + 'px',
+    border: '1px solid transparent',
+    background: 'transparent',
+    textShadow: enabledEffects.value.includes('emboss')
+      ? `0 ${Math.round(1 * s)}px 0 rgba(0,0,0,0.6), 0 0 ${Math.round(12 * s)}px rgba(255,255,255,0.18)`
+      : `0 ${Math.round(1 * s)}px ${Math.round(4 * s)}px rgba(0,0,0,0.65)`,
+    fontFamily: fieldFonts[key] || fontOptions[0].value,
+    userSelect: 'none',
+    maxHeight: Math.round(estimateFieldHeight(setting)) + 'px',
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
+    display: isSingleLine ? 'block' : '-webkit-box',
+    whiteSpace: isSingleLine ? 'nowrap' : 'normal',
+    textOverflow: isSingleLine ? 'ellipsis' : 'clip',
+    WebkitLineClamp: String(maxLines),
+    WebkitBoxOrient: 'vertical',
+    pointerEvents: 'none',
+  }
+}
 
 onMounted(loadCharacters)
 onBeforeUnmount(stopFieldDrag)
