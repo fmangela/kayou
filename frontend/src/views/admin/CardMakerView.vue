@@ -686,12 +686,18 @@ function getOriginalTextStyle(key) {
   const maxLines = Math.max(1, Math.round(toFiniteNumber(setting.maxLines, 1)))
   const isSingleLine = maxLines === 1
   const s = 1 // 原图就是 1:1
+  // fieldSettings 中存储的是预览缩放后的坐标，需要转换回原图尺寸
+  const scale = PREVIEW_SCALE.value
+  const x = setting.x / scale
+  const y = setting.y / scale
+  const width = setting.width / scale
+  const fontSize = setting.fontSize / scale
   return {
     position: 'absolute',
-    left: setting.x + 'px',
-    top: setting.y + 'px',
-    width: setting.width + 'px',
-    fontSize: setting.fontSize + 'px',
+    left: x + 'px',
+    top: y + 'px',
+    width: width + 'px',
+    fontSize: fontSize + 'px',
     fontWeight: setting.fontWeight,
     color: setting.color,
     textAlign: setting.textAlign,
@@ -705,7 +711,7 @@ function getOriginalTextStyle(key) {
       : `0 ${Math.round(1 * s)}px ${Math.round(4 * s)}px rgba(0,0,0,0.65)`,
     fontFamily: fieldFonts[key] || fontOptions[0].value,
     userSelect: 'none',
-    maxHeight: Math.round(estimateFieldHeight(setting)) + 'px',
+    maxHeight: Math.round(estimateFieldHeight({...setting, x, y, width, fontSize})) + 'px',
     overflow: 'hidden',
     wordBreak: 'break-word',
     overflowWrap: 'anywhere',
