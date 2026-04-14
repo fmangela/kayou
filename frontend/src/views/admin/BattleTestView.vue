@@ -239,14 +239,14 @@
             style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
             @click="confirmPickerCard(card)"
           >
-            <CardPreview
-              :attribute="card"
-              :design="sharedDesign"
-              :webp-path="card.webp_paths && card.webp_paths[0]"
-              :width="100"
-            />
-            <div style="text-align:center">
-              <div style="color:#333;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px">{{ card.name }}</div>
+             <CardPreview
+               :attribute="card"
+               :design="sharedDesign"
+               :webp-path="card.webp_paths && card.webp_paths[0]"
+               :width="188"
+             />
+             <div style="text-align:center">
+               <div style="color:#333;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:188px">{{ card.name }}</div>
               <div style="color:#666;font-size:10px">{{ card.rarity }}</div>
             </div>
           </div>
