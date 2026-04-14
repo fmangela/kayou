@@ -599,6 +599,15 @@ router.get('/attributes/export', async (req, res, next) => {
   }
 });
 
+router.get('/maker/design', async (req, res, next) => {
+  try {
+    const design = await getSharedCardMakerDesign();
+    res.json(design);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/maker/characters', async (req, res, next) => {
   try {
     const rows = await getAttributeRows({});

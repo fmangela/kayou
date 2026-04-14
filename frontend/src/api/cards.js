@@ -7,6 +7,7 @@ export const getCardAttributeOptions = () => http.get('/cards/attributes/options
 export const updateCardAttribute = (characterId, data) => http.put(`/cards/attributes/${characterId}`, data)
 export const getCardMakerCharacters = () => http.get('/cards/maker/characters')
 export const getCardMakerDetail = (characterId) => http.get(`/cards/maker/${characterId}`)
+export const getCardMakerGlobalDesign = () => http.get('/cards/maker/design')
 export const saveCardMakerDesign = (characterId, data) => http.put(`/cards/maker/${characterId}`, data)
 
 async function downloadCsv(path, filename) {

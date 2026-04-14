@@ -273,7 +273,7 @@
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { Plus, Loading } from '@element-plus/icons-vue'
-import { getCardAttributeOptions, getCardMakerCharacters, getCardMakerDetail } from '../../api/cards'
+import { getCardAttributeOptions, getCardMakerCharacters, getCardMakerGlobalDesign } from '../../api/cards'
 import { getGames } from '../../api/games'
 import { buildAssetUrl } from '../../api/runtime'
 import CardPreview from '../../components/battle/CardPreview.vue'
@@ -901,10 +901,9 @@ onMounted(async () => {
   try {
     allGames.value = await getGames()
     // Load shared card design for preview rendering
-    const chars = await getCardMakerCharacters()
-    if (chars.length) {
-      const detail = await getCardMakerDetail(chars[0].character_id)
-      sharedDesign.value = detail.design
+    const design = await getCardMakerGlobalDesign()
+    if (design) {
+      sharedDesign.value = design
     }
   } catch {
     // design stays null, CardPreview uses defaults
