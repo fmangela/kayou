@@ -50,8 +50,8 @@ const props = defineProps({
   isDead: { type: Boolean, default: false },
 })
 
-const PREVIEW_WIDTH = 360
-const PREVIEW_HEIGHT = 540
+const PREVIEW_WIDTH = 750
+const PREVIEW_HEIGHT = 1125
 
 const metricLabels = {
   force_value: '武力',

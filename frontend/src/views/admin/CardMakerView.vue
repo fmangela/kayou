@@ -273,12 +273,15 @@ const dragState = reactive({
   originY: 0,
 })
 
-const PREVIEW_WIDTH = 360
-const PREVIEW_HEIGHT = 540
+const CARD_WIDTH = 750
+const CARD_HEIGHT = 1125
+const PREVIEW_DISPLAY_WIDTH = 360
+const PREVIEW_DISPLAY_HEIGHT = 540
+const PREVIEW_SCALE = PREVIEW_DISPLAY_WIDTH / CARD_WIDTH
 const LAYOUT_META = Object.freeze({
   unit: 'relative',
-  baseWidth: PREVIEW_WIDTH,
-  baseHeight: PREVIEW_HEIGHT,
+  baseWidth: CARD_WIDTH,
+  baseHeight: CARD_HEIGHT,
   aspectRatio: '2:3',
 })
 
@@ -318,13 +321,21 @@ function deserializeLayoutSetting(key, layoutConfig = {}) {
     }
   }
 
-  return {
+  const fullSize = {
     ...merged,
-    x: scaleRelativeValue(raw.x, PREVIEW_WIDTH, base.x),
-    y: scaleRelativeValue(raw.y, PREVIEW_HEIGHT, base.y),
-    width: scaleRelativeValue(raw.width, PREVIEW_WIDTH, base.width),
-    fontSize: scaleRelativeValue(raw.fontSize, PREVIEW_HEIGHT, base.fontSize),
+    x: scaleRelativeValue(raw.x, CARD_WIDTH, base.x),
+    y: scaleRelativeValue(raw.y, CARD_HEIGHT, base.y),
+    width: scaleRelativeValue(raw.width, CARD_WIDTH, base.width),
+    fontSize: scaleRelativeValue(raw.fontSize, CARD_HEIGHT, base.fontSize),
     maxLines: Math.max(1, Math.round(toFiniteNumber(raw.maxLines, base.maxLines))),
+  }
+
+  return {
+    ...fullSize,
+    x: fullSize.x * PREVIEW_SCALE,
+    y: fullSize.y * PREVIEW_SCALE,
+    width: fullSize.width * PREVIEW_SCALE,
+    fontSize: fullSize.fontSize * PREVIEW_SCALE,
   }
 }
 
@@ -336,17 +347,24 @@ function serializeLayoutConfig(settings = {}) {
   for (const field of fieldDefs) {
     const base = defaultLayouts[field.key]
     const setting = settings[field.key] || base
+    
+    const xFull = toFiniteNumber(setting.x, base.x) / PREVIEW_SCALE
+    const yFull = toFiniteNumber(setting.y, base.y) / PREVIEW_SCALE
+    const widthFull = toFiniteNumber(setting.width, base.width) / PREVIEW_SCALE
+    const fontSizeFull = toFiniteNumber(setting.fontSize, base.fontSize) / PREVIEW_SCALE
+    
     const clamped = clampFieldPosition(
       field.key,
-      toFiniteNumber(setting.x, base.x),
-      toFiniteNumber(setting.y, base.y),
-      setting
+      xFull,
+      yFull,
+      { ...setting, width: widthFull }
     )
+    
     payload[field.key] = {
-      x: roundLayoutRatio(clamped.x / PREVIEW_WIDTH),
-      y: roundLayoutRatio(clamped.y / PREVIEW_HEIGHT),
-      width: roundLayoutRatio(toFiniteNumber(setting.width, base.width) / PREVIEW_WIDTH),
-      fontSize: roundLayoutRatio(toFiniteNumber(setting.fontSize, base.fontSize) / PREVIEW_HEIGHT),
+      x: roundLayoutRatio(clamped.x / CARD_WIDTH),
+      y: roundLayoutRatio(clamped.y / CARD_HEIGHT),
+      width: roundLayoutRatio(widthFull / CARD_WIDTH),
+      fontSize: roundLayoutRatio(fontSizeFull / CARD_HEIGHT),
       maxLines: Math.max(1, Math.round(toFiniteNumber(setting.maxLines, base.maxLines))),
       color: setting.color || base.color,
       fontWeight: setting.fontWeight || base.fontWeight,
@@ -382,16 +400,16 @@ const previewFields = computed(() => {
 })
 
 const previewFrameStyle = computed(() => ({
-  width: '360px',
+  width: PREVIEW_DISPLAY_WIDTH + 'px',
   aspectRatio: '2 / 3',
   margin: '0 auto',
   position: 'relative',
   overflow: 'hidden',
-  borderRadius: '18px',
+  borderRadius: Math.round(18 * PREVIEW_SCALE) + 'px',
   background: '#1f1f1f',
   boxShadow: enabledEffects.value.includes('emboss')
-    ? '0 22px 48px rgba(0,0,0,0.32), inset 0 0 0 2px rgba(255,255,255,0.08)'
-    : '0 18px 40px rgba(0,0,0,0.22)',
+    ? `0 ${Math.round(22 * PREVIEW_SCALE)}px ${Math.round(48 * PREVIEW_SCALE)}px rgba(0,0,0,0.32), inset 0 0 0 ${Math.round(2 * PREVIEW_SCALE)}px rgba(255,255,255,0.08)`
+    : `0 ${Math.round(18 * PREVIEW_SCALE)}px ${Math.round(40 * PREVIEW_SCALE)}px rgba(0,0,0,0.22)`,
 }))
 
 const previewFixedStyle = computed(() => {
@@ -436,6 +454,7 @@ function getPreviewTextStyle(key) {
   const selected = selectedFieldKey.value === key
   const maxLines = Math.max(1, Math.round(toFiniteNumber(setting.maxLines, 1)))
   const isSingleLine = maxLines === 1
+  const s = PREVIEW_SCALE
   return {
     position: 'absolute',
     left: `${setting.x}px`,
@@ -446,14 +465,14 @@ function getPreviewTextStyle(key) {
     color: setting.color,
     textAlign: setting.textAlign,
     lineHeight: 1.35,
-    padding: '4px 6px',
-    borderRadius: '6px',
-    border: selected ? '1px dashed rgba(255,255,255,0.65)' : '1px solid transparent',
+    padding: `${Math.round(4 * s)}px ${Math.round(6 * s)}px`,
+    borderRadius: `${Math.round(6 * s)}px`,
+    border: selected ? `${Math.round(1 * s)}px dashed rgba(255,255,255,0.65)` : `${Math.round(1 * s)}px solid transparent`,
     background: selected ? 'rgba(0,0,0,0.18)' : 'transparent',
-    backdropFilter: selected ? 'blur(1px)' : 'none',
+    backdropFilter: selected ? `blur(${Math.round(1 * s)}px)` : 'none',
     textShadow: enabledEffects.value.includes('emboss')
-      ? '0 1px 0 rgba(0,0,0,0.6), 0 0 12px rgba(255,255,255,0.18)'
-      : '0 1px 4px rgba(0,0,0,0.65)',
+      ? `0 ${Math.round(1 * s)}px 0 rgba(0,0,0,0.6), 0 0 ${Math.round(12 * s)}px rgba(255,255,255,0.18)`
+      : `0 ${Math.round(1 * s)}px ${Math.round(4 * s)}px rgba(0,0,0,0.65)`,
     fontFamily: fieldFonts[key] || fontOptions[0].value,
     cursor: selected ? 'move' : 'pointer',
     userSelect: 'none',
@@ -475,8 +494,8 @@ function selectField(key) {
 
 function clampFieldPosition(key, x, y, customSetting = null) {
   const setting = customSetting || fieldSettings[key] || defaultLayouts[key]
-  const maxX = Math.max(0, PREVIEW_WIDTH - Math.min(setting.width || 120, PREVIEW_WIDTH))
-  const maxY = Math.max(0, PREVIEW_HEIGHT - estimateFieldHeight(setting))
+  const maxX = Math.max(0, CARD_WIDTH - Math.min(setting.width || 120, CARD_WIDTH))
+  const maxY = Math.max(0, CARD_HEIGHT - estimateFieldHeight(setting))
   return {
     x: Math.min(Math.max(0, x), maxX),
     y: Math.min(Math.max(0, y), maxY),
