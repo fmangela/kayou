@@ -58,10 +58,12 @@ const metricLabels = {
   intellect_value: '智力',
   speed_value: '速度',
   stamina_value: '体力',
+  background: '',
 }
 
 const defaultLayouts = {
   name: { x: 24, y: 26, width: 180, fontSize: 28, maxLines: 1, color: '#ffffff', fontWeight: '700', textAlign: 'left' },
+  background: { x: 24, y: 374, width: 320, fontSize: 12, maxLines: 4, color: '#fff9dd', fontWeight: '400', textAlign: 'left' },
   card_code: { x: 190, y: 28, width: 120, fontSize: 14, maxLines: 1, color: '#f7e7a1', fontWeight: '700', textAlign: 'right' },
   series_name: { x: 24, y: 70, width: 120, fontSize: 15, maxLines: 1, color: '#ffe8a3', fontWeight: '700', textAlign: 'left' },
   faction_name: { x: 150, y: 70, width: 80, fontSize: 15, maxLines: 1, color: '#d8f0ff', fontWeight: '700', textAlign: 'center' },
@@ -75,6 +77,8 @@ const defaultLayouts = {
   skill1_desc: { x: 24, y: 442, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
   skill2_name: { x: 24, y: 474, width: 200, fontSize: 16, maxLines: 1, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
   skill2_desc: { x: 24, y: 498, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
+  skill3_name: { x: 24, y: 530, width: 200, fontSize: 16, maxLines: 1, color: '#ffe08a', fontWeight: '700', textAlign: 'left' },
+  skill3_desc: { x: 24, y: 554, width: 280, fontSize: 12, maxLines: 2, color: '#ffffff', fontWeight: '400', textAlign: 'left' },
 }
 
 const scale = computed(() => props.width / PREVIEW_WIDTH)
@@ -142,7 +146,7 @@ const visibleFields = computed(() => {
     .filter(key => defaultLayouts[key])
     .map(key => ({
       key,
-      text: metricLabels[key]
+      text: metricLabels.hasOwnProperty(key) && metricLabels[key]
         ? `${metricLabels[key]}：${props.attribute[key] ?? 0}`
         : (props.attribute[key] ?? ''),
     }))
