@@ -2,7 +2,7 @@
   <el-dialog
     :model-value="modelValue"
     title="选择卡牌"
-    width="860px"
+    width="960px"
     :close-on-click-modal="false"
     @update:model-value="$emit('update:modelValue', $event)"
     @open="onOpen"
@@ -45,27 +45,27 @@
 
     <!-- Card grid -->
     <div v-loading="loading" style="min-height:200px">
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
         <div
           v-for="card in pagedCards"
           :key="card.character_id"
           :style="cardItemStyle(card)"
           @click="selectCard(card)"
         >
-          <img
-            v-if="card.webp_paths && card.webp_paths[0]"
-            :src="buildAssetUrl(card.webp_paths[0])"
-            style="width:100%;height:100%;object-fit:cover;display:block"
-          />
-          <div v-else style="width:100%;height:100%;background:#2a2a2a;display:flex;align-items:center;justify-content:center">
-            <span style="color:#666;font-size:11px">无图</span>
+          <div style="position:relative">
+            <CardPreview
+              :attribute="card"
+              :design="design"
+              :webp-path="card.webp_paths && card.webp_paths[0]"
+              :width="100"
+            />
+            <div v-if="isSelected(card)" style="position:absolute;inset:0;background:rgba(64,158,255,0.35);display:flex;align-items:center;justify-content:center;border-radius:12px">
+              <el-icon style="color:#fff;font-size:32px"><Check /></el-icon>
+            </div>
           </div>
-          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.65);padding:3px 5px">
-            <div style="color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ card.name }}</div>
-            <div style="color:#f7e7a1;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ card.rarity }} · {{ card.series_name || '-' }}</div>
-          </div>
-          <div v-if="isSelected(card)" style="position:absolute;inset:0;background:rgba(64,158,255,0.35);display:flex;align-items:center;justify-content:center">
-            <el-icon style="color:#fff;font-size:28px"><Check /></el-icon>
+          <div style="text-align:center;margin-top:6px">
+            <div style="color:#333;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px">{{ card.name }}</div>
+            <div style="color:#666;font-size:10px">{{ card.rarity }} · {{ card.series_name || '-' }}</div>
           </div>
         </div>
       </div>
@@ -86,27 +86,25 @@
     <!-- Selected slots -->
     <div style="margin-top:12px;padding:10px;background:#f5f7fa;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-bottom:8px">已选（{{ selected.length }}/4，第一张为队长）：</div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:10px;align-items:center">
         <div
           v-for="(slot, i) in 4"
           :key="i"
-          style="width:56px;height:84px;border:1px dashed #ccc;border-radius:6px;overflow:hidden;position:relative;background:#fff;cursor:pointer"
+          style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer"
           @click="removeSlot(i)"
         >
           <template v-if="selected[i]">
-            <img
-              v-if="selected[i].webp_paths && selected[i].webp_paths[0]"
-              :src="buildAssetUrl(selected[i].webp_paths[0])"
-              style="width:100%;height:100%;object-fit:cover"
+            <CardPreview
+              :attribute="selected[i]"
+              :design="design"
+              :webp-path="selected[i].webp_paths && selected[i].webp_paths[0]"
+              :width="70"
+              :is-captain="i === 0"
             />
-            <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);padding:2px 3px">
-              <div style="color:#fff;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ selected[i].name }}</div>
-            </div>
-            <div v-if="i === 0" style="position:absolute;top:2px;right:2px;background:#f5a623;color:#fff;font-size:8px;font-weight:700;padding:1px 3px;border-radius:2px">队长</div>
           </template>
-          <div v-else style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:20px">+</div>
+          <div v-else style="width:70px;height:105px;border:2px dashed #ccc;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:24px;background:#fff">+</div>
         </div>
-        <span style="font-size:11px;color:#999;margin-left:4px">点击已选卡牌可取消</span>
+        <span style="font-size:11px;color:#999;margin-left:8px">点击已选卡牌可取消</span>
       </div>
     </div>
 
@@ -122,10 +120,12 @@ import { ref, reactive, computed, watch } from 'vue'
 import { Check } from '@element-plus/icons-vue'
 import { getCardAttributeOptions, getCardMakerCharacters } from '../../api/cards'
 import { buildAssetUrl } from '../../api/runtime'
+import CardPreview from './CardPreview.vue'
 
 const props = defineProps({
   modelValue: Boolean,
   initialSelected: { type: Array, default: () => [] },
+  design: { type: Object, default: null },
 })
 const emit = defineEmits(['update:modelValue', 'confirm'])
 

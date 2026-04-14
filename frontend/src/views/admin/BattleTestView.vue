@@ -233,18 +233,22 @@
         </el-select>
       </div>
       <div v-loading="pickerLoading" style="min-height:200px">
-        <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
           <div
             v-for="card in pickerPaged"
             :key="card.character_id"
-            style="width:80px;height:120px;border-radius:6px;overflow:hidden;position:relative;cursor:pointer;border:2px solid transparent;box-shadow:0 2px 6px rgba(0,0,0,0.2)"
+            style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
             @click="confirmPickerCard(card)"
           >
-            <img v-if="card.webp_paths && card.webp_paths[0]" :src="buildAssetUrl(card.webp_paths[0])" style="width:100%;height:100%;object-fit:cover" />
-            <div v-else style="width:100%;height:100%;background:#2a2a2a;display:flex;align-items:center;justify-content:center"><span style="color:#666;font-size:11px">无图</span></div>
-            <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.65);padding:3px 5px">
-              <div style="color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ card.name }}</div>
-              <div style="color:#f7e7a1;font-size:10px">{{ card.rarity }}</div>
+            <CardPreview
+              :attribute="card"
+              :design="sharedDesign"
+              :webp-path="card.webp_paths && card.webp_paths[0]"
+              :width="100"
+            />
+            <div style="text-align:center">
+              <div style="color:#333;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px">{{ card.name }}</div>
+              <div style="color:#666;font-size:10px">{{ card.rarity }}</div>
             </div>
           </div>
         </div>
@@ -259,6 +263,7 @@
     <CardPickerDialog
       v-model="batchPickerVisible"
       :initial-selected="batchTarget === 'cpu' ? cpuCards.filter(Boolean) : playerCards.filter(Boolean)"
+      :design="sharedDesign"
       @confirm="onBatchConfirm"
     />
 
