@@ -83,14 +83,14 @@
      <el-dialog
       v-model="battleDialogVisible"
       :title="phase === 'result' ? '对战结果' : '对战测试'"
-      width="1320px"
+      width="1600px"
       top="4vh"
       :close-on-click-modal="false"
       :close-on-press-escape="true"
       :show-close="true"
       @closed="onBattleDialogClosed"
     >
-      <div style="max-height:78vh;overflow-y:auto;padding-right:4px">
+       <div style="max-height:75vh;overflow-y:auto;padding-right:4px">
         <el-alert
           v-if="phase === 'battle' || phase === 'result'"
           title="当前测试模式已暂时关闭小游戏加载，双方回合都会自动模拟得分。"
@@ -128,8 +128,8 @@
 
             <div v-else>
               <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">电脑</div>
-              <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:16px">
-                <div style="display:flex;gap:14px;justify-content:center;min-width:max-content">
+               <div style="overflow-x:auto;padding-bottom:8px;margin-bottom:16px">
+                 <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
                   <div
                     v-for="(card, i) in battleCpuCards"
                     :key="'bc-' + i"
@@ -154,8 +154,8 @@
               <el-divider style="margin:8px 0 14px" />
 
               <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
-              <div style="overflow-x:auto;padding-bottom:8px">
-                <div style="display:flex;gap:14px;justify-content:center;min-width:max-content">
+               <div style="overflow-x:auto;padding-bottom:8px">
+                 <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
                   <div
                     v-for="(card, i) in battlePlayerCards"
                     :key="'bp-' + i"
