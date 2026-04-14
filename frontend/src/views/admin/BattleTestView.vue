@@ -21,7 +21,7 @@
               :attribute="cpuCards[i]"
               :design="sharedDesign"
               :webp-path="cpuCards[i].webp_paths && cpuCards[i].webp_paths[0]"
-              :width="120"
+              :width="160"
               :is-captain="i === 0"
             />
             <div v-else :style="emptySlotStyle">
@@ -56,7 +56,7 @@
               :attribute="playerCards[i]"
               :design="sharedDesign"
               :webp-path="playerCards[i].webp_paths && playerCards[i].webp_paths[0]"
-              :width="120"
+              :width="160"
               :is-captain="i === 0"
             />
             <div v-else :style="emptySlotStyle">
@@ -140,7 +140,7 @@
                       :attribute="card"
                       :design="sharedDesign"
                       :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="150"
+                      :width="180"
                       :is-captain="i === 0"
                       :show-hp="true"
                       :current-hp="cpuHp[i]"
@@ -166,7 +166,7 @@
                       :attribute="card"
                       :design="sharedDesign"
                       :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                      :width="150"
+                      :width="180"
                       :is-captain="i === 0"
                       :show-hp="true"
                       :current-hp="playerHp[i]"
@@ -376,10 +376,10 @@ const resultTag = computed(() => {
 })
 
 const emptySlotStyle = {
-  width: '120px',
-  height: '180px',
+  width: '160px',
+  height: '240px',
   border: '2px dashed #ddd',
-  borderRadius: '10px',
+  borderRadius: '12px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',

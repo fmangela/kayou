@@ -57,7 +57,7 @@
               :attribute="card"
               :design="design"
               :webp-path="card.webp_paths && card.webp_paths[0]"
-              :width="100"
+              :width="140"
             />
             <div v-if="isSelected(card)" style="position:absolute;inset:0;background:rgba(64,158,255,0.35);display:flex;align-items:center;justify-content:center;border-radius:12px">
               <el-icon style="color:#fff;font-size:32px"><Check /></el-icon>
@@ -98,7 +98,7 @@
               :attribute="selected[i]"
               :design="design"
               :webp-path="selected[i].webp_paths && selected[i].webp_paths[0]"
-              :width="70"
+              :width="90"
               :is-captain="i === 0"
             />
           </template>

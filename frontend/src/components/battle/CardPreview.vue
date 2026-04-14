@@ -115,16 +115,22 @@ function resolveLayout(key) {
   const lc = props.design?.layout_config || {}
   const raw = lc[key] || {}
   const isRelative = lc.__meta?.unit === 'relative'
-  if (!isRelative) return { ...base, ...raw }
-  return {
-    ...base,
-    ...raw,
-    x: Number.isFinite(Number(raw.x)) ? Math.round(Number(raw.x) * PREVIEW_WIDTH) : base.x,
-    y: Number.isFinite(Number(raw.y)) ? Math.round(Number(raw.y) * PREVIEW_HEIGHT) : base.y,
-    width: Number.isFinite(Number(raw.width)) ? Math.round(Number(raw.width) * PREVIEW_WIDTH) : base.width,
-    fontSize: Number.isFinite(Number(raw.fontSize)) ? Math.round(Number(raw.fontSize) * PREVIEW_HEIGHT) : base.fontSize,
-    maxLines: Math.max(1, Math.round(Number(raw.maxLines) || base.maxLines || 1)),
+  
+  const result = { ...base, ...raw }
+  
+  if (isRelative) {
+    result.x = Number.isFinite(Number(raw.x)) ? Math.round(Number(raw.x) * PREVIEW_WIDTH) : base.x
+    result.y = Number.isFinite(Number(raw.y)) ? Math.round(Number(raw.y) * PREVIEW_HEIGHT) : base.y
+    result.width = Number.isFinite(Number(raw.width)) ? Math.round(Number(raw.width) * PREVIEW_WIDTH) : base.width
+    result.fontSize = Number.isFinite(Number(raw.fontSize)) ? Math.round(Number(raw.fontSize) * PREVIEW_HEIGHT) : base.fontSize
   }
+  
+  result.maxLines = Math.max(1, Math.round(Number(raw.maxLines) || base.maxLines || 1))
+  result.color = raw.color || base.color
+  result.fontWeight = raw.fontWeight || base.fontWeight
+  result.textAlign = raw.textAlign || base.textAlign
+  
+  return result
 }
 
 const visibleFields = computed(() => {
@@ -149,6 +155,8 @@ function getTextStyle(key) {
   const maxLines = Math.max(1, layout.maxLines || 1)
   const isSingle = maxLines === 1
   const fontConfig = props.design?.font_config || {}
+  const effects = props.design?.effect_config || {}
+  
   return {
     position: 'absolute',
     left: Math.round(layout.x * s) + 'px',
@@ -159,16 +167,21 @@ function getTextStyle(key) {
     color: layout.color || '#fff',
     textAlign: layout.textAlign || 'left',
     lineHeight: 1.35,
+    padding: Math.round(4 * s) + 'px ' + Math.round(6 * s) + 'px',
+    borderRadius: Math.round(6 * s) + 'px',
     fontFamily: fontConfig[key] || '"STKaiti", serif',
-    textShadow: '0 1px 4px rgba(0,0,0,0.65)',
+    textShadow: effects.emboss
+      ? `0 ${Math.round(1 * s)}px 0 rgba(0,0,0,0.6), 0 0 ${Math.round(12 * s)}px rgba(255,255,255,0.18)`
+      : `0 ${Math.round(1 * s)}px ${Math.round(4 * s)}px rgba(0,0,0,0.65)`,
     overflow: 'hidden',
     wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
     display: isSingle ? 'block' : '-webkit-box',
     whiteSpace: isSingle ? 'nowrap' : 'normal',
     textOverflow: isSingle ? 'ellipsis' : 'clip',
     WebkitLineClamp: String(maxLines),
     WebkitBoxOrient: 'vertical',
-    maxHeight: Math.round(layout.fontSize * s * 1.35 * maxLines + 8) + 'px',
+    maxHeight: Math.round(layout.fontSize * s * 1.35 * maxLines + 8 * s) + 'px',
     pointerEvents: 'none',
   }
 }
