@@ -664,6 +664,60 @@ watch(visibleFields, (nextFields) => {
   }
 })
 
+function openOriginalPreview() {
+  originalPreviewVisible.value = true
+}
+
+const originalFrameStyle = computed(() => ({
+  width: CARD_WIDTH + 'px',
+  height: CARD_HEIGHT + 'px',
+  position: 'relative',
+  overflow: 'hidden',
+  borderRadius: '18px',
+  background: '#1f1f1f',
+  margin: '0 auto',
+  boxShadow: enabledEffects.value.includes('emboss')
+    ? '0 22px 48px rgba(0,0,0,0.32), inset 0 0 0 2px rgba(255,255,255,0.08)'
+    : '0 18px 40px rgba(0,0,0,0.22)',
+}))
+
+function getOriginalTextStyle(key) {
+  const setting = fieldSettings[key] || defaultLayouts[key]
+  const maxLines = Math.max(1, Math.round(toFiniteNumber(setting.maxLines, 1)))
+  const isSingleLine = maxLines === 1
+  const s = 1 // 原图就是 1:1
+  return {
+    position: 'absolute',
+    left: setting.x + 'px',
+    top: setting.y + 'px',
+    width: setting.width + 'px',
+    fontSize: setting.fontSize + 'px',
+    fontWeight: setting.fontWeight,
+    color: setting.color,
+    textAlign: setting.textAlign,
+    lineHeight: 1.35,
+    padding: Math.round(4 * s) + 'px ' + Math.round(6 * s) + 'px',
+    borderRadius: Math.round(6 * s) + 'px',
+    border: '1px solid transparent',
+    background: 'transparent',
+    textShadow: enabledEffects.value.includes('emboss')
+      ? `0 ${Math.round(1 * s)}px 0 rgba(0,0,0,0.6), 0 0 ${Math.round(12 * s)}px rgba(255,255,255,0.18)`
+      : `0 ${Math.round(1 * s)}px ${Math.round(4 * s)}px rgba(0,0,0,0.65)`,
+    fontFamily: fieldFonts[key] || fontOptions[0].value,
+    userSelect: 'none',
+    maxHeight: Math.round(estimateFieldHeight(setting)) + 'px',
+    overflow: 'hidden',
+    wordBreak: 'break-word',
+    overflowWrap: 'anywhere',
+    display: isSingleLine ? 'block' : '-webkit-box',
+    whiteSpace: isSingleLine ? 'nowrap' : 'normal',
+    textOverflow: isSingleLine ? 'ellipsis' : 'clip',
+    WebkitLineClamp: String(maxLines),
+    WebkitBoxOrient: 'vertical',
+    pointerEvents: 'none',
+  }
+}
+
 // 当预览比例变化时，重新反序列化布局
 watch(previewScale, () => {
   if (detail.design) {
