@@ -45,7 +45,7 @@
 
     <!-- Card grid -->
     <div v-loading="loading" style="min-height:200px">
-      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
+      <div style="display:flex;flex-wrap:wrap;gap:18px 16px;align-items:flex-start">
         <div
           v-for="card in pagedCards"
           :key="card.character_id"
@@ -223,13 +223,14 @@ function confirm() {
 function cardItemStyle(card) {
   const sel = isSelected(card)
   return {
-    width: '80px',
-    height: '120px',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    position: 'relative',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '6px',
     cursor: 'pointer',
     border: sel ? '2px solid #409eff' : '2px solid transparent',
+    borderRadius: '12px',
+    padding: '8px',
     boxShadow: sel ? '0 0 8px rgba(64,158,255,0.6)' : '0 2px 6px rgba(0,0,0,0.2)',
     transition: 'border-color 0.15s, box-shadow 0.15s',
     opacity: !sel && selected.value.length >= 4 ? 0.5 : 1,

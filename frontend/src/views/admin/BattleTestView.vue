@@ -204,8 +204,8 @@
       </template>
     </el-dialog>
 
-    <!-- Card picker dialog (single slot) -->
-    <el-dialog v-model="pickerVisible" title="选择卡牌" width="860px" :close-on-click-modal="false" @open="onPickerOpen">
+     <!-- Card picker dialog (single slot) -->
+     <el-dialog v-model="pickerVisible" title="选择卡牌" width="960px" :close-on-click-modal="false" @open="onPickerOpen">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <el-input v-model="pickerFilter.keyword" placeholder="搜索名字/系列/阵营..." clearable style="width:200px" @input="pickerPage = 1" />
         <el-select v-model="pickerFilter.faction_name" placeholder="阵营" clearable style="width:120px" @change="pickerPage = 1">
@@ -232,11 +232,11 @@
         </el-select>
       </div>
       <div v-loading="pickerLoading" style="min-height:200px">
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
+        <div style="display:flex;flex-wrap:wrap;gap:18px 16px;align-items:flex-start">
           <div
             v-for="card in pickerPaged"
             :key="card.character_id"
-            style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
+            style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;padding:8px;border-radius:12px"
             @click="confirmPickerCard(card)"
           >
              <CardPreview
