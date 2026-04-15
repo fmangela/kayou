@@ -433,6 +433,7 @@ function compareCardValues(left, right, field, order) {
 
   return String(leftValue || '').localeCompare(String(rightValue || ''), 'zh-Hans-CN') * direction
 }
+}
 
 function sortCards(list, sortState) {
   return [...list].sort((left, right) => {
