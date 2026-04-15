@@ -118,47 +118,63 @@
                    :key="'bc-' + i"
                    :style="battleCardWrapStyle('cpu', i)"
                  >
-                   <CardPreview
-                     :attribute="card"
-                     :design="sharedDesign"
-                     :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                     :width="375"
-                     :is-captain="i === 0"
-                     :show-hp="true"
-                     :current-hp="cpuHp[i]"
-                     :max-hp="card ? (card.stamina_value || 100) : 100"
-                     :is-dead="cpuHp[i] <= 0"
-                   />
-                   <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
+                    <CardPreview
+                      :attribute="card"
+                      :design="sharedDesign"
+                      :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                      :width="375"
+                      :is-captain="i === 0"
+                    />
+                     <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'cpu'" size="small" type="warning">进行中</el-tag>
+                   </div>
                  </div>
                </div>
-             </div>
 
-             <el-divider style="margin:8px 0 14px" />
+               <el-divider style="margin:8px 0 14px" />
 
-             <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
-             <div style="overflow-x:auto;padding-bottom:8px">
-               <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
-                 <div
-                   v-for="(card, i) in battlePlayerCards"
-                   :key="'bp-' + i"
-                   :style="battleCardWrapStyle('player', i)"
-                 >
-                   <CardPreview
-                     :attribute="card"
-                     :design="sharedDesign"
-                     :webp-path="card && card.webp_paths && card.webp_paths[0]"
-                     :width="375"
-                     :is-captain="i === 0"
-                     :show-hp="true"
-                     :current-hp="playerHp[i]"
-                     :max-hp="card ? (card.stamina_value || 100) : 100"
-                     :is-dead="playerHp[i] <= 0"
-                   />
-                   <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'player'" size="small" type="success">进行中</el-tag>
+               <!-- 团队总血条 -->
+               <div style="padding:0 40px 10px;">
+                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                   <span style="font-size:13px;font-weight:bold">电脑总血量</span>
+                   <span style="font-size:13px;color:#e6a23c">{{ cpuTotalHp }} / {{ cpuTotalMaxHp }}</span>
+                 </div>
+                 <div style="width:100%;height:16px;background:#333;border-radius:8px;overflow:hidden">
+                   <div :style="{ width: cpuTotalHpPercent + '%', height: '100%', background: '#e6a23c', transition: 'width 0.4s' }" />
                  </div>
                </div>
-             </div>
+
+               <el-divider style="margin:8px 0 14px" />
+
+               <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px">玩家</div>
+                <div style="overflow-x:auto;padding-bottom:8px">
+                  <div style="display:flex;gap:16px;justify-content:center;min-width:max-content">
+                   <div
+                     v-for="(card, i) in battlePlayerCards"
+                     :key="'bp-' + i"
+                     :style="battleCardWrapStyle('player', i)"
+                   >
+                     <CardPreview
+                       :attribute="card"
+                       :design="sharedDesign"
+                       :webp-path="card && card.webp_paths && card.webp_paths[0]"
+                       :width="375"
+                       :is-captain="i === 0"
+                     />
+                     <el-tag v-if="cpuPlaying && currentSlot === i && currentTurn === 'player'" size="small" type="success">进行中</el-tag>
+                   </div>
+                 </div>
+               </div>
+
+               <!-- 团队总血条 -->
+               <div style="padding:0 40px 10px;margin-top:10px">
+                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                   <span style="font-size:13px;font-weight:bold">玩家总血量</span>
+                   <span style="font-size:13px;color:#67c23a">{{ playerTotalHp }} / {{ playerTotalMaxHp }}</span>
+                 </div>
+                 <div style="width:100%;height:16px;background:#333;border-radius:8px;overflow:hidden">
+                   <div :style="{ width: playerTotalHpPercent + '%', height: '100%', background: '#67c23a', transition: 'width 0.4s' }" />
+                 </div>
+               </div>
            </el-card>
 
            <!-- 掷骰子对话框 -->
@@ -614,7 +630,7 @@ function startBattle() {
   phase.value = 'battle'
   addLog('=== 对战开始 ===', 'info')
   addLog('当前测试模式已关闭小游戏加载，双方回合都会自动模拟得分。', 'info')
-  diceDialogVisible.value = true
+  addLog(`电脑总血量：${cpuTotalMaxHp.value}，玩家总血量：${playerTotalMaxHp.value}`, 'info')
   rollDice()
 }
 
@@ -697,45 +713,38 @@ const attackPhase = ref(null) // { side, slots: [{ boardSlot, attackSlot, attack
 const phaseResults = ref([])   // 收集到的得分结果
 const roundFirstSide = ref('player')
 
-function findAliveSlots(side) {
-  // 返回所有存活牌位的序号列表，按顺序
-  const hpList = getSideHp(side)
-  const alive = []
-  for (let i = 0; i < 4; i++) {
-    if (hpList[i] > 0) alive.push(i)
-  }
-  return alive
-}
+// 团队总血量计算
+const cpuTotalMaxHp = computed(() => {
+  return battleCpuCards.value.reduce((sum, card) => sum + (card ? (card.stamina_value || 100) : 0), 0)
+})
+const cpuTotalHp = computed(() => {
+  return cpuHp.value.reduce((sum, hp) => sum + Math.max(0, hp), 0)
+})
+const cpuTotalHpPercent = computed(() => {
+  return cpuTotalMaxHp.value <= 0 ? 0 : Math.round((cpuTotalHp.value / cpuTotalMaxHp.value) * 100)
+})
 
-function findMatchingDefSlot(side, attackIndex, aliveDefSlots) {
-  // 需求：双方按存活顺序，进攻方第 N 个对防守方第 N 个
-  // 这样保证 n 对 n，阵亡后顺延
-  // aliveDefSlots 已经是按顺序的，直接取对应索引
-  return aliveDefSlots[attackIndex] ?? -1
-}
+const playerTotalMaxHp = computed(() => {
+  return battlePlayerCards.value.reduce((sum, card) => sum + (card ? (card.stamina_value || 100) : 0), 0)
+})
+const playerTotalHp = computed(() => {
+  return playerHp.value.reduce((sum, hp) => sum + Math.max(0, hp), 0)
+})
+const playerTotalHpPercent = computed(() => {
+  return playerTotalMaxHp.value <= 0 ? 0 : Math.round((playerTotalHp.value / playerTotalMaxHp.value) * 100)
+})
 
 function buildAttackSlots(side) {
   const slots = []
   const attackCards = getSideCards(side)
-  const attackHp = getSideHp(side)
   const defSide = side === 'player' ? 'cpu' : 'player'
   
-  // 获取双方存活牌位序号，按顺序
-  const aliveAttackSlots = []
-  for (let i = 0; i < 4; i++) {
-    if (attackHp[i] > 0) aliveAttackSlots.push(i)
-  }
-  const aliveDefSlots = findAliveSlots(defSide)
-  
-  // 进攻方按存活顺序，每个进攻牌对防守方对应顺序位置
-  // 这样：如果对方阵亡，自动顺延，保证 n 对 n
-  for (let idx = 0; idx < aliveAttackSlots.length; idx++) {
-    const boardSlot = aliveAttackSlots[idx]
+  // 需求：永远 1对1，2对2，3对3，4对4，固定配对，不因为总血量扣除改变配对
+  // 所有卡牌都参与进攻，直接按序号配对
+  for (let boardSlot = 0; boardSlot < 4; boardSlot += 1) {
     const attackSlot = resolveRepresentativeSlot(side, boardSlot)
-    const defSlot = findMatchingDefSlot(defSide, idx, aliveDefSlots)
+    const defSlot = boardSlot // 固定对应序号配对
     
-    if (attackSlot < 0 || defSlot < 0) continue
-
     const attackCard = attackCards[attackSlot]
     const defCard = getSideCards(defSide)[defSlot]
     if (!attackCard || !defCard) continue
@@ -845,17 +854,59 @@ async function simulateAllSlots(side, slots) {
 function onAttackPhaseDone(side, results) {
   addLog(`【结算】${side === 'player' ? '玩家' : '电脑'}进攻结果：`, 'round')
 
+  let totalDamage = 0
   for (const r of [...results].sort((left, right) => left.boardSlot - right.boardSlot)) {
     const damage = Math.max(0, Math.round(r.score * (r.attackCard?.force_value || 50) / 10))
+    totalDamage += damage
 
-    // 使用新的匹配规则获取当前对应目标
-    // 注意：这里 r.boardSlot 是原始牌位序号，idx 是在存活列表中的索引
-    // 我们已经在 buildAttackSlots 完成匹配了，直接用 r.defSlot 就可以
-    const currentDefSlot = r.defSlot
-    if (currentDefSlot < 0 || r.score <= 0) {
-      addLog(`  牌位${r.boardSlot + 1} 得分${r.score}/5 → 无有效目标`, 'miss')
+    if (r.score <= 0) {
+      addLog(`  牌位${r.boardSlot + 1} 得分${r.score}/5 → 无有效目标，总伤害+0`, 'miss')
       continue
     }
+
+    addLog(`  牌位${r.boardSlot + 1} ${slotActorLabel(side, r.boardSlot, r.attackSlot, r.attackCard)} 得分${r.score}/5 → 总伤害+${damage}`, 'damage')
+  }
+
+  // 伤害扣除到团队总血条
+  if (side === 'player') {
+    // 玩家进攻，扣除电脑血量
+    cpuHp.value = cpuHp.value.map(hp => Math.max(0, hp - totalDamage / 4))
+  } else {
+    // 电脑进攻，扣除玩家血量
+    playerHp.value = playerHp.value.map(hp => Math.max(0, hp - totalDamage / 4))
+  }
+
+  addLog(`  合计扣除伤害 ${totalDamage} → ${side === 'player' ? '电脑' : 'player'} 剩余总血量 ${side === 'player' ? cpuTotalHp.value : playerTotalHp.value}`, 'damage')
+
+  attackPhase.value = null
+  phaseResults.value = []
+  cpuPlaying.value = false
+  currentSlot.value = -1
+  activeBoardSlot.value = -1
+
+  // 检查胜负：总血量扣光即失败
+  const cpuAlive = cpuTotalHp.value > 0
+  const playerAlive = playerTotalHp.value > 0
+  if (!cpuAlive || !playerAlive) {
+    endBattle()
+    return
+  }
+
+  // 攻守互换：当前 side 进攻完，换另一边进攻
+  // 不管对方剩多少，都要进攻完才算一轮结束
+  const secondSide = side === 'player' ? 'cpu' : 'player'
+  const isFullRoundDone = side !== roundFirstSide.value
+
+  if (isFullRoundDone) {
+    // 双方都进攻完了，这一轮真正结束
+    roundNum.value++
+    addLog(`─── 第 ${roundNum.value - 1} 轮结束 ───`, 'round')
+    rollDice()
+  } else {
+    // 先手打完了，轮到后手反击
+    startAttackPhase(secondSide)
+  }
+}
 
     const defHp = r.defSide === 'cpu' ? cpuHp.value : playerHp.value
     const defCards = r.defSide === 'cpu' ? battleCpuCards.value : battlePlayerCards.value
