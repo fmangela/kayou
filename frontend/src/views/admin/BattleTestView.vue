@@ -709,24 +709,9 @@ function findAliveSlots(side) {
 
 function findMatchingDefSlot(side, attackIndex, aliveDefSlots) {
   // 需求：双方按存活顺序，进攻方第 N 个对防守方第 N 个
-  // 这样保证 赢n对n，阵亡后顺延
+  // 这样保证 n 对 n，阵亡后顺延
   // aliveDefSlots 已经是按顺序的，直接取对应索引
   return aliveDefSlots[attackIndex] ?? -1
-}
-  // 往后找第一个存活
-  for (let i = attackBoardSlot + 1; i < 4; i++) {
-    if (hpList[i] > 0) {
-      return i
-    }
-  }
-  // 往前找最后一个存活
-  for (let i = attackBoardSlot - 1; i >= 0; i--) {
-    if (hpList[i] > 0) {
-      return i
-    }
-  }
-  // 没找到
-  return -1
 }
 
 function buildAttackSlots(side) {
