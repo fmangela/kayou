@@ -348,8 +348,8 @@ const dragState = reactive({ side: '', index: -1 })
 // Battle state
 const battleCpuCards = ref([])
 const battlePlayerCards = ref([])
-const cpuHp = ref([0, 0, 0, 0])
-const playerHp = ref([0, 0, 0, 0])
+const cpuTeamHp = ref(0)
+const playerTeamHp = ref(0)
 const roundNum = ref(1)
 const currentTurn = ref('player') // player | cpu
 const currentSlot = ref(-1)
@@ -386,8 +386,8 @@ const turnLabel = computed(() => currentTurn.value === 'player' ? '玩家进攻'
 const simulationStatusText = computed(() => currentTurn.value === 'cpu' ? '电脑正在自动出战，请稍候…' : '玩家回合自动结算中…')
 
 const resultText = computed(() => {
-  const cpuAlive = cpuHp.value.some(h => h > 0)
-  const playerAlive = playerHp.value.some(h => h > 0)
+  const cpuAlive = cpuTotalHp.value > 0
+  const playerAlive = playerTotalHp.value > 0
   if (!cpuAlive && !playerAlive) return '平局'
   if (!cpuAlive) return '玩家胜利！'
   if (!playerAlive) return '电脑胜利！'
@@ -433,7 +433,6 @@ function compareCardValues(left, right, field, order) {
 
   return String(leftValue || '').localeCompare(String(rightValue || ''), 'zh-Hans-CN') * direction
 }
-}
 
 function sortCards(list, sortState) {
   return [...list].sort((left, right) => {
@@ -464,33 +463,12 @@ function getSideCards(side) {
   return side === 'cpu' ? battleCpuCards.value : battlePlayerCards.value
 }
 
-function getSideHp(side) {
-  return side === 'cpu' ? cpuHp.value : playerHp.value
-}
-
-function resolveRepresentativeSlot(side, boardSlot) {
-  const hpList = getSideHp(side)
-  for (let index = boardSlot; index >= 0; index -= 1) {
-    if ((hpList[index] || 0) > 0) return index
-  }
-  return -1
-}
-
-function getCardByResolvedSlot(side, boardSlot) {
-  const resolvedSlot = resolveRepresentativeSlot(side, boardSlot)
-  if (resolvedSlot < 0) return null
-  return getSideCards(side)[resolvedSlot] || null
-}
-
 function slotActorLabel(side, boardSlot, actualSlot, card) {
   const sideLabel = side === 'cpu' ? '电脑' : '玩家'
   if (!card || actualSlot < 0) {
     return `${sideLabel} 牌位${boardSlot + 1}（空）`
   }
-  if (actualSlot === boardSlot) {
-    return `${sideLabel} 牌位${boardSlot + 1}（${card.name || '未命名'}）`
-  }
-  return `${sideLabel} 牌位${boardSlot + 1}（由牌位${actualSlot + 1} ${card.name || '未命名'} 代打）`
+  return `${sideLabel} 牌位${boardSlot + 1}（${card.name || '未命名'}）`
 }
 
 function mergeCardIntoTeam(teamCards, targetIndex, card) {
@@ -618,8 +596,8 @@ function startBattle() {
   battleDialogVisible.value = true
   battleCpuCards.value = [...cpuCards.value]
   battlePlayerCards.value = [...playerCards.value]
-  cpuHp.value = battleCpuCards.value.map(c => c ? (c.stamina_value || 100) : 0)
-  playerHp.value = battlePlayerCards.value.map(c => c ? (c.stamina_value || 100) : 0)
+  cpuTeamHp.value = cpuTotalMaxHp.value
+  playerTeamHp.value = playerTotalMaxHp.value
   battleLog.value = []
   roundNum.value = 1
   currentTurn.value = 'player'
@@ -649,6 +627,8 @@ function resetBattle() {
   cpuPlaying.value = false
   cpuDiceRoll.value = 0
   playerDiceRoll.value = 0
+  cpuTeamHp.value = 0
+  playerTeamHp.value = 0
 }
 
 function restartBattle() {
@@ -719,7 +699,7 @@ const cpuTotalMaxHp = computed(() => {
   return battleCpuCards.value.reduce((sum, card) => sum + (card ? (card.stamina_value || 100) : 0), 0)
 })
 const cpuTotalHp = computed(() => {
-  return cpuHp.value.reduce((sum, hp) => sum + Math.max(0, hp), 0)
+  return Math.max(0, cpuTeamHp.value)
 })
 const cpuTotalHpPercent = computed(() => {
   return cpuTotalMaxHp.value <= 0 ? 0 : Math.round((cpuTotalHp.value / cpuTotalMaxHp.value) * 100)
@@ -729,7 +709,7 @@ const playerTotalMaxHp = computed(() => {
   return battlePlayerCards.value.reduce((sum, card) => sum + (card ? (card.stamina_value || 100) : 0), 0)
 })
 const playerTotalHp = computed(() => {
-  return playerHp.value.reduce((sum, hp) => sum + Math.max(0, hp), 0)
+  return Math.max(0, playerTeamHp.value)
 })
 const playerTotalHpPercent = computed(() => {
   return playerTotalMaxHp.value <= 0 ? 0 : Math.round((playerTotalHp.value / playerTotalMaxHp.value) * 100)
@@ -739,13 +719,11 @@ function buildAttackSlots(side) {
   const slots = []
   const attackCards = getSideCards(side)
   const defSide = side === 'player' ? 'cpu' : 'player'
-  
-  // 需求：永远 1对1，2对2，3对3，4对4，固定配对，不因为总血量扣除改变配对
-  // 所有卡牌都参与进攻，直接按序号配对
+
+  // 新需求：始终固定 1 对 1、2 对 2、3 对 3、4 对 4，不再根据单卡血量顺延或代打。
   for (let boardSlot = 0; boardSlot < 4; boardSlot += 1) {
-    const attackSlot = resolveRepresentativeSlot(side, boardSlot)
-    const defSlot = boardSlot // 固定对应序号配对
-    
+    const attackSlot = boardSlot
+    const defSlot = boardSlot
     const attackCard = attackCards[attackSlot]
     const defCard = getSideCards(defSide)[defSlot]
     if (!attackCard || !defCard) continue
@@ -806,7 +784,7 @@ function startAttackPhase(side) {
 
 function simulateSlotScore(slot) {
   const attack = slot.attackCard || {}
-  const defend = getCardByResolvedSlot(slot.defSide, slot.boardSlot) || slot.defCard || {}
+  const defend = slot.defCard || {}
   const attackPower =
     (Number(attack.force_value) || 0) * 0.38 +
     (Number(attack.speed_value) || 0) * 0.24 +
@@ -870,14 +848,12 @@ function onAttackPhaseDone(side, results) {
 
   // 伤害扣除到团队总血条
   if (side === 'player') {
-    // 玩家进攻，扣除电脑血量
-    cpuHp.value = cpuHp.value.map(hp => Math.max(0, hp - totalDamage / 4))
+    cpuTeamHp.value = Math.max(0, cpuTeamHp.value - totalDamage)
   } else {
-    // 电脑进攻，扣除玩家血量
-    playerHp.value = playerHp.value.map(hp => Math.max(0, hp - totalDamage / 4))
+    playerTeamHp.value = Math.max(0, playerTeamHp.value - totalDamage)
   }
 
-  addLog(`  合计扣除伤害 ${totalDamage} → ${side === 'player' ? '电脑' : 'player'} 剩余总血量 ${side === 'player' ? cpuTotalHp.value : playerTotalHp.value}`, 'damage')
+  addLog(`  合计扣除伤害 ${totalDamage} → ${side === 'player' ? '电脑' : '玩家'} 剩余总血量 ${side === 'player' ? cpuTotalHp.value : playerTotalHp.value}`, 'damage')
 
   attackPhase.value = null
   phaseResults.value = []
@@ -907,36 +883,6 @@ function onAttackPhaseDone(side, results) {
     // 先手打完了，轮到后手反击
     startAttackPhase(secondSide)
   }
-  }
-
-   attackPhase.value = null
-  phaseResults.value = []
-  cpuPlaying.value = false
-  currentSlot.value = -1
-  activeBoardSlot.value = -1
-
-  // 检查胜负
-  const cpuAlive = cpuHp.value.some(h => h > 0)
-  const playerAlive = playerHp.value.some(h => h > 0)
-  if (!cpuAlive || !playerAlive) {
-    endBattle()
-    return
-  }
-
-  // 攻守互换：当前 side 进攻完，换另一边进攻
-  // 不管对方剩多少，都要反击，先手 → 后手反击 → 才算一轮结束
-  const secondSide = side === 'player' ? 'cpu' : 'player'
-  const isFullRoundDone = side !== roundFirstSide.value
-
-  if (isFullRoundDone) {
-    // 双方都进攻完了，这一轮真正结束
-    roundNum.value++
-    addLog(`─── 第 ${roundNum.value - 1} 轮结束 ───`, 'round')
-    rollDice()
-  } else {
-    // 先手打完了，轮到后手反击
-    startAttackPhase(secondSide)
-  }
 }
 
 // ── END BATTLE ────────────────────────────────────────────────────────────────
@@ -947,8 +893,8 @@ function endBattle() {
   cpuPlaying.value = false
   currentSlot.value = -1
   activeBoardSlot.value = -1
-  const cpuAlive = cpuHp.value.some(h => h > 0)
-  const playerAlive = playerHp.value.some(h => h > 0)
+  const cpuAlive = cpuTotalHp.value > 0
+  const playerAlive = playerTotalHp.value > 0
   if (!cpuAlive && !playerAlive) addLog('=== 平局！ ===', 'result')
   else if (!cpuAlive) addLog('=== 玩家胜利！ ===', 'result')
   else addLog('=== 电脑胜利！ ===', 'result')
