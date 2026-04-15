@@ -906,10 +906,9 @@ function onAttackPhaseDone(side, results) {
     // 先手打完了，轮到后手反击
     startAttackPhase(secondSide)
   }
-}
   }
 
-  attackPhase.value = null
+   attackPhase.value = null
   phaseResults.value = []
   cpuPlaying.value = false
   currentSlot.value = -1
