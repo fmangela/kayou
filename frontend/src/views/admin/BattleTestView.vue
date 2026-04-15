@@ -697,16 +697,22 @@ const attackPhase = ref(null) // { side, slots: [{ boardSlot, attackSlot, attack
 const phaseResults = ref([])   // 收集到的得分结果
 const roundFirstSide = ref('player')
 
-function findMatchingDefSlot(side, attackBoardSlot) {
+function findAliveSlots(side) {
+  // 返回所有存活牌位的序号列表，按顺序
   const hpList = getSideHp(side)
-  // 需求：永远对应相同牌位序号，如果对方对应序号阵亡，则：
-  // 从这个序号往后找第一个存活，如果找不到，从这个序号往前找最后一个存活
-  // 这样实现 1对1, 2对2, 3对3, 4对4，阵亡后自动越级
-  
-  // 先尝试同序号
-  if (hpList[attackBoardSlot] > 0) {
-    return attackBoardSlot
+  const alive = []
+  for (let i = 0; i < 4; i++) {
+    if (hpList[i] > 0) alive.push(i)
   }
+  return alive
+}
+
+function findMatchingDefSlot(side, attackIndex, aliveDefSlots) {
+  // 需求：双方按存活顺序，进攻方第 N 个对防守方第 N 个
+  // 这样保证 赢n对n，阵亡后顺延
+  // aliveDefSlots 已经是按顺序的，直接取对应索引
+  return aliveDefSlots[attackIndex] ?? -1
+}
   // 往后找第一个存活
   for (let i = attackBoardSlot + 1; i < 4; i++) {
     if (hpList[i] > 0) {
@@ -725,19 +731,27 @@ function findMatchingDefSlot(side, attackBoardSlot) {
 
 function buildAttackSlots(side) {
   const slots = []
+  const attackCards = getSideCards(side)
   const attackHp = getSideHp(side)
   const defSide = side === 'player' ? 'cpu' : 'player'
   
-  // 进攻方按牌位顺序 0,1,2,3，每个存活的进攻牌找对应序号的防守牌
-  for (let boardSlot = 0; boardSlot < 4; boardSlot += 1) {
-    if (attackHp[boardSlot] <= 0) continue // 进攻方自己阵亡了跳过
-    
+  // 获取双方存活牌位序号，按顺序
+  const aliveAttackSlots = []
+  for (let i = 0; i < 4; i++) {
+    if (attackHp[i] > 0) aliveAttackSlots.push(i)
+  }
+  const aliveDefSlots = findAliveSlots(defSide)
+  
+  // 进攻方按存活顺序，每个进攻牌对防守方对应顺序位置
+  // 这样：如果对方阵亡，自动顺延，保证 n 对 n
+  for (let idx = 0; idx < aliveAttackSlots.length; idx++) {
+    const boardSlot = aliveAttackSlots[idx]
     const attackSlot = resolveRepresentativeSlot(side, boardSlot)
-    const defSlot = findMatchingDefSlot(defSide, boardSlot)
+    const defSlot = findMatchingDefSlot(defSide, idx, aliveDefSlots)
     
     if (attackSlot < 0 || defSlot < 0) continue
 
-    const attackCard = getSideCards(side)[attackSlot]
+    const attackCard = attackCards[attackSlot]
     const defCard = getSideCards(defSide)[defSlot]
     if (!attackCard || !defCard) continue
 
@@ -849,8 +863,10 @@ function onAttackPhaseDone(side, results) {
   for (const r of [...results].sort((left, right) => left.boardSlot - right.boardSlot)) {
     const damage = Math.max(0, Math.round(r.score * (r.attackCard?.force_value || 50) / 10))
 
-    // 按牌位结算；若该牌位卡牌已阵亡，则退到左边最近存活牌位
-    const currentDefSlot = resolveRepresentativeSlot(r.defSide, r.boardSlot)
+    // 使用新的匹配规则获取当前对应目标
+    // 注意：这里 r.boardSlot 是原始牌位序号，idx 是在存活列表中的索引
+    // 我们已经在 buildAttackSlots 完成匹配了，直接用 r.defSlot 就可以
+    const currentDefSlot = r.defSlot
     if (currentDefSlot < 0 || r.score <= 0) {
       addLog(`  牌位${r.boardSlot + 1} 得分${r.score}/5 → 无有效目标`, 'miss')
       continue
@@ -885,16 +901,18 @@ function onAttackPhaseDone(side, results) {
     return
   }
 
-  // 攻守互换
+  // 攻守互换：当前 side 进攻完，换另一边进攻
+  // 不管对方剩多少，都要反击，先手 → 后手反击 → 才算一轮结束
   const secondSide = side === 'player' ? 'cpu' : 'player'
-  const isSecondPhase = side !== roundFirstSide.value
-  if (isSecondPhase) {
-    // 两个阶段都完成，进入下一轮
+  const isFullRoundDone = side !== roundFirstSide.value
+
+  if (isFullRoundDone) {
+    // 双方都进攻完了，这一轮真正结束
     roundNum.value++
     addLog(`─── 第 ${roundNum.value - 1} 轮结束 ───`, 'round')
     rollDice()
   } else {
-    // 进入后手阶段
+    // 先手打完了，轮到后手反击
     startAttackPhase(secondSide)
   }
 }
