@@ -907,20 +907,6 @@ function onAttackPhaseDone(side, results) {
     startAttackPhase(secondSide)
   }
 }
-
-    const defHp = r.defSide === 'cpu' ? cpuHp.value : playerHp.value
-    const defCards = r.defSide === 'cpu' ? battleCpuCards.value : battlePlayerCards.value
-    const newHp = [...defHp]
-    newHp[currentDefSlot] = Math.max(0, newHp[currentDefSlot] - damage)
-    if (r.defSide === 'cpu') cpuHp.value = newHp
-    else playerHp.value = newHp
-
-    const defCard = defCards[currentDefSlot]
-    addLog(`  ${slotActorLabel(side, r.boardSlot, r.attackSlot, r.attackCard)} 得分${r.score}/5 → 伤害${damage} → ${slotActorLabel(r.defSide, r.boardSlot, currentDefSlot, defCard)} 剩余HP:${newHp[currentDefSlot]}`, 'damage')
-
-    if (newHp[currentDefSlot] <= 0) {
-      addLog(`  ${slotActorLabel(r.defSide, r.boardSlot, currentDefSlot, defCard)} 阵亡！`, 'death')
-    }
   }
 
   attackPhase.value = null
